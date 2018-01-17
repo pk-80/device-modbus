@@ -35,7 +35,9 @@ pipeline {
             steps {
                 sh "mv ./target/*.jar ./iotech-docker-files/"
                 sh "docker build --tag docker.iotechsys.com/edgex/device-modbus:built ./iotech-docker-files"
+                sh "docker login -u bruce -p Txcx2sDHk5Ts3GO2 docker.iotechsys.com"
                 sh "docker push docker.iotechsys.com/edgex/device-modbus:built"
+                sh "docker logout docker.iotechsys.com"
             }
 
         }

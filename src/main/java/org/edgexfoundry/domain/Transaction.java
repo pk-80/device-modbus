@@ -19,19 +19,16 @@
  *******************************************************************************/
 package org.edgexfoundry.domain;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
 import org.edgexfoundry.domain.core.Reading;
+
+import java.util.*;
 
 public class Transaction {	
 	private String transactionId;
 	private List<Reading> readings;
 	private Map<String, Boolean> opIds;
 	private Boolean finished = true;
+    private Boolean isFail = false;
 	
 	public Transaction() {
 		setTransactionId(UUID.randomUUID().toString());
@@ -78,4 +75,12 @@ public class Transaction {
 			this.readings.addAll(readings);
 	}
 
+    public Boolean isFail() {
+        return isFail;
+    }
+
+    public void setFail() {
+        isFail = true;
+        finished = true;
+    }
 }

@@ -66,10 +66,17 @@ public class ModbusDriver {
 		String result = "";
 		
 		// TODO 2: [Optional] Modify this processCommand call to pass any additional required metadata from the profile to the driver stack
-		result = processCommand(operation.getOperation(), device.getAddressable(), object, value);
-		logger.info("Putting result:" + result);
-		objectCache.put(device, operation, result);
-		handler.completeTransaction(transactionId, opId, objectCache.getResponses(device, operation));
+        try {
+            result = processCommand(operation.getOperation(), device.getAddressable(), object, value);
+            logger.info("Putting result:" + result);
+            objectCache.put(device, operation, result);
+            handler.completeTransaction(transactionId, opId, objectCache.getResponses(device, operation));
+        } catch (Exception e) {
+            logger.error("ModbusDriver process Exception e:" + e.getMessage());
+            handler.failTransaction(transactionId);
+            Thread.currentThread().interrupt();
+        }
+
 	}
 
 	// Modify this function as needed to pass necessary metadata from the device and its profile to the driver interface

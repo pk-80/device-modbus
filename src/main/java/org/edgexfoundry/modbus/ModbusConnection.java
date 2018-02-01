@@ -171,7 +171,7 @@ public class ModbusConnection {
 			catch(Exception e){
 				logger.error("General Exception e:" + e.getMessage());
 
-				throw new ServiceException(e);
+                throw new BadCommandRequestException(e.getMessage());
 			}
 			finally{
 				con.close();

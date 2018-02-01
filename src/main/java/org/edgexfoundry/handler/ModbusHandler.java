@@ -45,6 +45,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigInteger;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -135,7 +136,7 @@ public class ModbusHandler {
 				}
 			}
 			if (transactions.get(transactionId).isFail()) {
-				throw new BadCommandRequestException("ModbusDriver process error .");
+                throw transactions.get(transactionId).getFailException();
 			}
 		}
 	
@@ -318,9 +319,10 @@ public class ModbusHandler {
 		}
 	}
 
-	public void failTransaction(String transactionId) {
+    public void failTransaction(String transactionId, RuntimeException e) {
 		synchronized (transactions) {
 			transactions.get(transactionId).setFail();
+            transactions.get(transactionId).setFailException(e);
 			transactions.notifyAll();
 		}
 	}

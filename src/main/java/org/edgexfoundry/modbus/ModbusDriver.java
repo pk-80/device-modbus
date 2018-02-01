@@ -28,6 +28,7 @@ import org.edgexfoundry.domain.ScanList;
 import org.edgexfoundry.domain.meta.Addressable;
 import org.edgexfoundry.domain.meta.Device;
 import org.edgexfoundry.domain.meta.ResourceOperation;
+import org.edgexfoundry.exception.ServiceException;
 import org.edgexfoundry.handler.ModbusHandler;
 import org.edgexfoundry.support.logging.client.EdgeXLogger;
 import org.edgexfoundry.support.logging.client.EdgeXLoggerFactory;
@@ -73,7 +74,7 @@ public class ModbusDriver {
             handler.completeTransaction(transactionId, opId, objectCache.getResponses(device, operation));
         } catch (Exception e) {
             logger.error("ModbusDriver process Exception e:" + e.getMessage());
-            handler.failTransaction(transactionId);
+			handler.failTransaction(transactionId, new ServiceException(e));
             Thread.currentThread().interrupt();
         }
 

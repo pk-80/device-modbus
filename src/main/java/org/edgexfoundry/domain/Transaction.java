@@ -29,6 +29,7 @@ public class Transaction {
 	private Map<String, Boolean> opIds;
 	private Boolean finished = true;
     private Boolean isFail = false;
+    private RuntimeException failException;
 	
 	public Transaction() {
 		setTransactionId(UUID.randomUUID().toString());
@@ -82,5 +83,13 @@ public class Transaction {
     public void setFail() {
         isFail = true;
         finished = true;
+    }
+
+    public RuntimeException getFailException() {
+        return failException;
+    }
+
+    public void setFailException(RuntimeException failException) {
+        this.failException = failException;
     }
 }

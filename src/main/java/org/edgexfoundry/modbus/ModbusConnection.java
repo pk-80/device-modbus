@@ -28,6 +28,7 @@ import org.edgexfoundry.domain.ModbusObject;
 import org.edgexfoundry.domain.meta.Addressable;
 import org.edgexfoundry.domain.meta.Protocol;
 import org.edgexfoundry.exception.BadCommandRequestException;
+import org.edgexfoundry.exception.ServiceException;
 import org.edgexfoundry.support.logging.client.EdgeXLogger;
 import org.edgexfoundry.support.logging.client.EdgeXLoggerFactory;
 
@@ -170,7 +171,7 @@ public class ModbusConnection {
 			catch(Exception e){
 				logger.error("General Exception e:" + e.getMessage());
 
-				throw new BadCommandRequestException(e.getMessage());
+				throw new ServiceException(e);
 			}
 			finally{
 				con.close();

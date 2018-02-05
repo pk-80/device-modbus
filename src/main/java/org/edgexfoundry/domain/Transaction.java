@@ -19,9 +19,13 @@
  *******************************************************************************/
 package org.edgexfoundry.domain;
 
-import org.edgexfoundry.domain.core.Reading;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
-import java.util.*;
+import org.edgexfoundry.domain.core.Reading;
 
 public class Transaction {	
 	private String transactionId;

@@ -19,9 +19,12 @@
  *******************************************************************************/
 package org.edgexfoundry.handler;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.edgexfoundry.data.ObjectStore;
 import org.edgexfoundry.data.ProfileStore;
 import org.edgexfoundry.domain.ModbusObject;
@@ -32,7 +35,6 @@ import org.edgexfoundry.domain.core.Reading;
 import org.edgexfoundry.domain.meta.Device;
 import org.edgexfoundry.domain.meta.PropertyValue;
 import org.edgexfoundry.domain.meta.ResourceOperation;
-import org.edgexfoundry.exception.BadCommandRequestException;
 import org.edgexfoundry.exception.controller.NotFoundException;
 import org.edgexfoundry.exception.controller.ServiceException;
 import org.edgexfoundry.modbus.DeviceDiscovery;
@@ -44,12 +46,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.math.BigInteger;
-import java.net.SocketTimeoutException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 @Service
 public class ModbusHandler {

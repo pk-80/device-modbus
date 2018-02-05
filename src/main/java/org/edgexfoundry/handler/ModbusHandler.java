@@ -134,7 +134,7 @@ public class ModbusHandler {
 					return null;
 				}
 			}
-			if (transactions.get(transactionId).isFail()) {
+            if (transactions.get(transactionId).isFailed()) {
                 throw transactions.get(transactionId).getFailException();
 			}
 		}
@@ -320,7 +320,7 @@ public class ModbusHandler {
 
     public void failTransaction(String transactionId, RuntimeException e) {
 		synchronized (transactions) {
-			transactions.get(transactionId).setFail();
+            transactions.get(transactionId).setFailed();
             transactions.get(transactionId).setFailException(e);
 			transactions.notifyAll();
 		}

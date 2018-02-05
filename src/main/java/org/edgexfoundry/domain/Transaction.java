@@ -32,7 +32,7 @@ public class Transaction {
 	private List<Reading> readings;
 	private Map<String, Boolean> opIds;
 	private Boolean finished = true;
-    private Boolean isFail = false;
+    private Boolean failed = false;
     private RuntimeException failException;
 	
 	public Transaction() {
@@ -80,12 +80,12 @@ public class Transaction {
 			this.readings.addAll(readings);
 	}
 
-    public Boolean isFail() {
-        return isFail;
+    public Boolean isFailed() {
+        return failed;
     }
 
-    public void setFail() {
-        isFail = true;
+    public void setFailed() {
+        failed = true;
         finished = true;
     }
 

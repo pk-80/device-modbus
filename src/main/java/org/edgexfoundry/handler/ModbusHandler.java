@@ -134,6 +134,9 @@ public class ModbusHandler {
 					return null;
 				}
 			}
+            if (transactions.get(transactionId).isFailed()) {
+                throw transactions.get(transactionId).getFailException();
+			}
 		}
 	
 		List<Reading> readings = transactions.get(transactionId).getReadings();
@@ -308,9 +311,17 @@ public class ModbusHandler {
 		return val;
 	}
 
-	public void completeTransaction(String transactionId, String opId, List<Reading> readings) {		
+	public void completeTransaction(String transactionId, String opId, List<Reading> readings) {
 		synchronized (transactions) {
 			transactions.get(transactionId).finishOp(opId, readings);
+			transactions.notifyAll();
+		}
+	}
+
+    public void failTransaction(String transactionId, RuntimeException e) {
+		synchronized (transactions) {
+            transactions.get(transactionId).setFailed();
+            transactions.get(transactionId).setFailException(e);
 			transactions.notifyAll();
 		}
 	}

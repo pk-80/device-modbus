@@ -32,6 +32,8 @@ public class Transaction {
 	private List<Reading> readings;
 	private Map<String, Boolean> opIds;
 	private Boolean finished = true;
+    private Boolean failed = false;
+    private RuntimeException failException;
 	
 	public Transaction() {
 		setTransactionId(UUID.randomUUID().toString());
@@ -78,4 +80,20 @@ public class Transaction {
 			this.readings.addAll(readings);
 	}
 
+    public Boolean isFailed() {
+        return failed;
+    }
+
+    public void setFailed() {
+        failed = true;
+        finished = true;
+    }
+
+    public RuntimeException getFailException() {
+        return failException;
+    }
+
+    public void setFailException(RuntimeException failException) {
+        this.failException = failException;
+    }
 }

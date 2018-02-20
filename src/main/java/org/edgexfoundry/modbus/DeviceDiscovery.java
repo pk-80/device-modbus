@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
 
 import org.edgexfoundry.data.DeviceStore;
 import org.edgexfoundry.data.WatcherStore;
+import org.edgexfoundry.domain.ModbusDevice;
 import org.edgexfoundry.domain.ScanList;
 import org.edgexfoundry.domain.meta.Addressable;
 import org.edgexfoundry.domain.meta.AdminState;
@@ -92,7 +93,7 @@ public class DeviceDiscovery {
 		return devices.getMetaDevices().stream().filter(d -> device.get("address").equals(d.getAddressable().getPath())).findFirst().orElse(null);
 	}
 
-	private Device createDevice(Map<String, String> device, ProvisionWatcher watcher) {
+	private ModbusDevice createDevice(Map<String, String> device, ProvisionWatcher watcher) {
 		Device newDevice = new Device();
 		newDevice.setProfile(watcher.getProfile());
 		newDevice.setService(watcher.getService());
@@ -103,7 +104,7 @@ public class DeviceDiscovery {
 		newDevice.setLabels(watcher.getService().getLabels());
 		newDevice.setAdminState(AdminState.UNLOCKED);
 		newDevice.setOperatingState(OperatingState.ENABLED);
-		return newDevice;
+		return new ModbusDevice(newDevice);
 	}
 	
 	private Addressable createAddressable(Map<String, String> device, String name, Addressable service) {
@@ -120,7 +121,7 @@ public class DeviceDiscovery {
 				if (matchingDevice != null) {
 					if (matchingDevice.getOperatingState().equals(OperatingState.DISABLED) || devices.getDevice(matchingDevice.getName()) == null) {
 						matchingDevice.setOperatingState(OperatingState.ENABLED);
-						devices.add(matchingDevice);
+						devices.add(new ModbusDevice(matchingDevice));
 					}
 					continue;
 				}
@@ -128,7 +129,7 @@ public class DeviceDiscovery {
 				ProvisionWatcher watcher = deviceMatches(device);
 				if (watcher != null) {
 					//Provision the device
-					Device newDevice = createDevice(device, watcher);
+					ModbusDevice newDevice = createDevice(device, watcher);
 					devices.add(newDevice);
 				}
 			}

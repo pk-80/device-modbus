@@ -69,7 +69,7 @@ public class DeviceStore {
 	// cache for devices
 	private Map<String, ModbusDevice> devices = new HashMap<String,ModbusDevice>();
 	
-	public boolean remove(Device device) {
+	public boolean remove(ModbusDevice device) {
 		logger.debug("Removing managed device:  " + device.getName());
 		if (devices.containsKey(device.getName())) {
 			devices.remove(device.getName());			
@@ -89,17 +89,17 @@ public class DeviceStore {
 	}
 	
 	public boolean add(String deviceId) {
-		Device device = deviceClient.device(deviceId);
+		ModbusDevice device = new ModbusDevice(deviceClient.device(deviceId));
 		return add(device);
 	}
 	
-	public boolean add(Device device) {
+	public boolean add(ModbusDevice device) {
 		if (devices.containsKey(device.getName())) {
 			devices.remove(device.getName());
 			profiles.removeDevice(device);
 		}
 		logger.info("Adding managed device:  " + device.getName());
-		Device metaDevice = addDeviceToMetaData(device);
+		ModbusDevice metaDevice = addDeviceToMetaData(device);
 		if (metaDevice == null) {
 			remove(device);
 			return false;
@@ -109,7 +109,7 @@ public class DeviceStore {
 		return true;
 	}
 
-	private Device addDeviceToMetaData(Device device) {
+	private ModbusDevice addDeviceToMetaData(ModbusDevice device) {
 		//Create a new addressable Object with the devicename + last 6 digits of MAC address.Assume this to be unique
 		
 		Addressable addressable = null; 
@@ -148,8 +148,8 @@ public class DeviceStore {
 	}
 
 	public boolean update(String deviceId) {
-		Device device = deviceClient.device(deviceId);
-		Device localDevice = getDeviceById(deviceId);
+		ModbusDevice device = new ModbusDevice(deviceClient.device(deviceId));
+		ModbusDevice localDevice = getDeviceById(deviceId);
 		if (device != null && localDevice != null && compare(device,localDevice))
 			return true;
 		return add(device);
@@ -188,7 +188,7 @@ public class DeviceStore {
 		Modbus.initialize();
 		for (Device device : metaDevices) {
 			deviceClient.updateOpState(device.getId(),OperatingState.DISABLED.name());
-			add(device);
+			add(new ModbusDevice(device));
 		}
 		logger.info("Device service has " + devices.size() + " devices.");
 		return getDevices();
@@ -224,7 +224,7 @@ public class DeviceStore {
 			return null;
 	}
 	
-	public Device getDeviceById(String deviceId) {
+	public ModbusDevice getDeviceById(String deviceId) {
 		if (devices != null) {
 			return devices.values().stream().filter(device -> device.getId().equals(deviceId)).findAny().orElse(null);
 		}

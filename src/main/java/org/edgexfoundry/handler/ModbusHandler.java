@@ -27,6 +27,7 @@ import java.util.Map;
 
 import org.edgexfoundry.data.ObjectStore;
 import org.edgexfoundry.data.ProfileStore;
+import org.edgexfoundry.domain.ModbusDevice;
 import org.edgexfoundry.domain.ModbusObject;
 import org.edgexfoundry.domain.ResponseObject;
 import org.edgexfoundry.domain.ScanList;
@@ -90,13 +91,13 @@ public class ModbusHandler {
 			driver.initialize();
 	}
 
-	public void initializeDevice(Device device) {
+	public void initializeDevice(ModbusDevice device) {
 		if(modbusInit != null && commandExists(device, modbusInit))
 			executeCommand(device, modbusInit, modbusInitArgs);
 		logger.info("Initialized Device: " + device.getName());
 	}
 
-	public void disconnectDevice(Device device) {
+	public void disconnectDevice(ModbusDevice device) {
 		if (modbusRemove != null && commandExists(device, modbusRemove))
 			executeCommand(device, modbusRemove, modbusRemoveArgs);
 		driver.disconnectDevice(device.getAddressable());
@@ -117,7 +118,7 @@ public class ModbusHandler {
 		return true;
 	}
 
-	public Map<String,String> executeCommand(Device device, String cmd, String arguments) {
+	public Map<String,String> executeCommand(ModbusDevice device, String cmd, String arguments) {
 		// set immediate flag to false to read from object cache of last readings
 		Boolean immediate = true;
 		Transaction transaction = new Transaction();
@@ -153,7 +154,7 @@ public class ModbusHandler {
 		return valueDescriptorMap;
 	}
 
-	private void executeOperations(Device device, String commandName, String arguments, Boolean immediate, String transactionId) {
+	private void executeOperations(ModbusDevice device, String commandName, String arguments, Boolean immediate, String transactionId) {
 		String method = (arguments == null) ? "get" : "set";
 		
 		String deviceName = device.getName();
@@ -247,13 +248,13 @@ public class ModbusHandler {
 		return resource.get(method);
 	}
 	
-	private String parseArguments(String arguments, ResourceOperation operation, Device device, ModbusObject object, Map<String, ModbusObject> objects) {
+	private String parseArguments(String arguments, ResourceOperation operation, ModbusDevice device, ModbusObject object, Map<String, ModbusObject> objects) {
 		PropertyValue value = object.getProperties().getValue();
 		String val = parseArg(arguments, operation, value, operation.getParameter());
 		
 		// if the written value is on a multiplexed handle, read the current value and apply the mask first
 		if (!value.mask().equals(BigInteger.ZERO)) {
-			String result = driver.processCommand("get", device.getAddressable(), object, val);
+			String result = driver.processCommand("get", device.getAddressable(), object, val, device);
 			val = transform.maskedValue(value, val, result);
 			if (operation.getSecondary() != null) {
 				for (String secondary: operation.getSecondary()) {

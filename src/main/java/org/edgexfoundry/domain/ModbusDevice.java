@@ -22,12 +22,13 @@ package org.edgexfoundry.domain;
 import org.edgexfoundry.domain.ModbusDeviceProfile;
 import org.edgexfoundry.domain.meta.Device;
 
-@SuppressWarnings("serial")
 public class ModbusDevice extends Device {
+
+	private static final long serialVersionUID = 1L;
 	private Boolean state = false;
-	
 	private ModbusDeviceProfile profile;
 	private Integer failures = 0;
+	private ModbusLocation location;
 	
 	public ModbusDevice(Device device) {
 		this.setAdminState(device.getAdminState());
@@ -43,7 +44,7 @@ public class ModbusDevice extends Device {
 		this.setName(device.getName());
 		this.setOperatingState(device.getOperatingState());
 		this.setService(device.getService());
-		this.setLocation(device.getLocation());
+		this.setLocation(new ModbusLocation(device.getLocation()));
 	}
 
 	public ModbusDeviceProfile getModbusProfile() {
@@ -75,6 +76,14 @@ public class ModbusDevice extends Device {
 	
 	public Device getDevice() {
 		return (Device) this;
+	}
+
+	public ModbusLocation getLocation() {
+		return location;
+	}
+
+	public void setLocation(ModbusLocation location) {
+		this.location = location;
 	}
 	
 }

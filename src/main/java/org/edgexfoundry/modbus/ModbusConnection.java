@@ -24,11 +24,11 @@ import java.util.HashMap;
 
 import javax.xml.bind.DatatypeConverter;
 
+import org.edgexfoundry.domain.ModbusDevice;
 import org.edgexfoundry.domain.ModbusObject;
 import org.edgexfoundry.domain.meta.Addressable;
 import org.edgexfoundry.domain.meta.Protocol;
 import org.edgexfoundry.exception.BadCommandRequestException;
-import org.edgexfoundry.exception.ServiceException;
 import org.edgexfoundry.support.logging.client.EdgeXLogger;
 import org.edgexfoundry.support.logging.client.EdgeXLoggerFactory;
 
@@ -138,10 +138,16 @@ public class ModbusConnection {
 		return con;
 	}
 
-	public String getValue(Object connection, Addressable addressable, ModbusObject object, int retryCount) {
+	public String getValue(Object connection, Addressable addressable, ModbusObject object, ModbusDevice device, int retryCount) {
 		String result = "";
 		ReadMultipleRegistersResponse res = null; //the response
-		ReadMultipleRegistersRequest req = new ReadMultipleRegistersRequest(Integer.parseInt(object.getAttributes().getHoldingRegister()), 1);
+		int startedAddress = Integer.parseInt(object.getAttributes().getHoldingRegister());
+		int baseAddress = 0;
+		if (device.getLocation()!=null && device.getLocation().getBaseAddress()!=null) {
+			baseAddress = device.getLocation().getBaseAddress();
+		}
+
+		ReadMultipleRegistersRequest req = new ReadMultipleRegistersRequest(baseAddress + startedAddress, 1);
 		logger.info("Holding Register:" + object.getAttributes().getHoldingRegister());
 		if(connection instanceof TCPMasterConnection){
 			TCPMasterConnection con = (TCPMasterConnection)connection;
@@ -161,7 +167,7 @@ public class ModbusConnection {
 				retryCount ++;
 				if(retryCount < 3){
 					logger.warn("Cannot get the value:" + ioe.getMessage() + ",count:" + retryCount);
-					getValue(connection, addressable, object, retryCount);
+					getValue(connection, addressable, object, device, retryCount);
 				}
 				else{
 					throw new BadCommandRequestException(ioe.getMessage());
@@ -199,7 +205,7 @@ public class ModbusConnection {
 				retryCount ++;
 				if(retryCount < 3){
 					logger.warn("Cannot get the value:" + ioe.getMessage() + ",count:" + retryCount);
-					getValue(connection, addressable, object, retryCount);
+					getValue(connection, addressable, object, device, retryCount);
 				}
 				else{
 					throw new BadCommandRequestException(ioe.getMessage());
@@ -219,20 +225,27 @@ public class ModbusConnection {
 		return result;
 	}
 
-	public String setValue(Object connection, Addressable addressable, ModbusObject object, String value, int retryCount) {
+	public String setValue(Object connection, Addressable addressable, ModbusObject object, String value, ModbusDevice device, int retryCount) {
 		String result = "";
 		String scaledValue = "";
+		if(value != null){
+			float scale = Float.parseFloat(object.getProperties().getValue().getScale());
+			Float newValue = (Integer.parseInt(value)/scale);
+
+			scaledValue = newValue.intValue() + "" ;
+		}
+		
+		int startedAddress = Integer.parseInt(object.getAttributes().getHoldingRegister());
+		int baseAddress = 0;
+		if (device.getLocation()!=null && device.getLocation().getBaseAddress()!=null) {
+			baseAddress = device.getLocation().getBaseAddress();
+		}
+		
+		ModbusRequest req = new WriteSingleRegisterRequest(baseAddress + startedAddress, new SimpleRegister(Integer.parseInt(scaledValue)));
 		if(connection instanceof TCPMasterConnection){
 			TCPMasterConnection con = (TCPMasterConnection)connection;
 			logger.info("Setting value here scale:" + object.getProperties().getValue().getScale() + ", property:" + object.getName() + "Value:" + value);
 			try{
-				if(value != null){
-					float scale = Float.parseFloat(object.getProperties().getValue().getScale());
-					Float newValue = (Integer.parseInt(value)/scale);
-
-					scaledValue = newValue.intValue() + "" ;
-				}
-				ModbusRequest req = new WriteSingleRegisterRequest(Integer.parseInt(object.getAttributes().getHoldingRegister()), new SimpleRegister(Integer.parseInt(scaledValue)));
 				req.setUnitID(Integer.valueOf(addressable.getPath()));
 				con.connect();
 				ModbusTCPTransaction transaction = new ModbusTCPTransaction(con);
@@ -247,7 +260,7 @@ public class ModbusConnection {
 				retryCount ++;
 				if(retryCount < 3){
 					logger.error("Cannot set the value:" + ioe.getMessage() + ",count:" + retryCount);
-					setValue(connection, addressable, object, value, retryCount);
+					setValue(connection, addressable, object, value, device, retryCount);
 				}
 				else{
 
@@ -268,13 +281,6 @@ public class ModbusConnection {
 			SerialConnection con = (SerialConnection)connection;
 			logger.info("Setting value here scale:" + object.getProperties().getValue().getScale() + ", property:" + object.getName() + "Value:" + value);
 			try{
-				if(value != null){
-					float scale = Float.parseFloat(object.getProperties().getValue().getScale());
-					Float newValue = (Integer.parseInt(value)/scale);
-
-					scaledValue = newValue.intValue() + "" ;
-				}
-				ModbusRequest req = new WriteSingleRegisterRequest(Integer.parseInt(object.getAttributes().getHoldingRegister()), new SimpleRegister(Integer.parseInt(scaledValue)));
 				req.setUnitID(Integer.valueOf(addressable.getPath()));
 				con.open();
 				ModbusSerialTransaction transaction = new ModbusSerialTransaction(con);
@@ -289,7 +295,7 @@ public class ModbusConnection {
 				retryCount ++;
 				if(retryCount < 3){
 					logger.error("Cannot set the value:" + ioe.getMessage() + ",count:" + retryCount);
-					setValue(connection, addressable, object, value, retryCount);
+					setValue(connection, addressable, object, value, device, retryCount);
 				}
 				else{
 

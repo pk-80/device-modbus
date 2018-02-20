@@ -24,6 +24,7 @@ import org.edgexfoundry.domain.meta.DeviceObject;
 
 public class ModbusObject extends DeviceObject {
 
+	private static final long serialVersionUID = 1L;
 	private ModbusAttribute attributes;
 
 	public ModbusObject(DeviceObject object) {

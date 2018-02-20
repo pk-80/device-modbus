@@ -24,10 +24,10 @@ import java.util.List;
 
 import org.edgexfoundry.domain.meta.DeviceProfile;
 
-@SuppressWarnings("serial")
 public class ModbusDeviceProfile extends DeviceProfile {
 	
-	private List<ModbusObject> ModbusResources = new ArrayList<ModbusObject>();
+	private static final long serialVersionUID = 1L;
+	private List<ModbusObject> modbusResources = new ArrayList<ModbusObject>();
 
 	public ModbusDeviceProfile(DeviceProfile profile) {
 		this.setCommands(profile.getCommands());
@@ -45,11 +45,11 @@ public class ModbusDeviceProfile extends DeviceProfile {
 	}
 
 	public List<ModbusObject> getModbusResources() {
-		return ModbusResources;
+		return modbusResources;
 	}
 
 	public void setModbusResources(List<ModbusObject> objects) {
-		this.ModbusResources = objects;
+		this.modbusResources = objects;
 	}
 
 }

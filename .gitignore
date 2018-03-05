@@ -55,4 +55,4 @@ target/
 
 # MQTT test runs
 Northbound*/
-/iot-core-data.log
+*.log

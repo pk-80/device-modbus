@@ -31,6 +31,7 @@ import org.edgexfoundry.domain.meta.Device;
 import org.edgexfoundry.domain.meta.OperatingState;
 import org.edgexfoundry.domain.meta.PropertyValue;
 import org.edgexfoundry.domain.meta.ResourceOperation;
+import org.edgexfoundry.exception.controller.DataValidationException;
 import org.edgexfoundry.exception.controller.NotFoundException;
 import org.edgexfoundry.handler.CoreDataMessageHandler;
 import org.edgexfoundry.modbus.ObjectTransform;
@@ -41,6 +42,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
 import com.google.gson.JsonObject;
+import com.iotechsys.edgexpert.utils.ReadingValueTransformer;
+import com.iotechsys.edgexpert.utils.exception.DataTransformException;
 
 @Repository
 public class ObjectStore {
@@ -151,6 +154,17 @@ public class ObjectStore {
 		
 		if (mappings != null && mappings.containsKey(transformResult))
 			transformResult = mappings.get(transformResult);
+		
+		// temporarily use Secondary field for functions
+		List<String> functions = operation.getTransformFunctions();
+		if (functions != null && !functions.isEmpty()){
+			try {
+				transformResult = ReadingValueTransformer.transformByFunctions(transformResult, functions);
+			} catch (DataTransformException e) {
+				logger.error(e.getMessage(), e);
+				throw new DataValidationException(e.getMessage());
+			}
+		}
 		
 		return transformResult;
 	}

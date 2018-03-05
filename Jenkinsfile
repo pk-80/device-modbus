@@ -35,8 +35,8 @@ pipeline {
             steps {
                 sh "mv ./target/*.jar ./iotech-docker-files/"
                 sh "docker rmi docker.iotechsys.com/edgex/device-modbus:built"
-                sh "docker build --tag docker.iotechsys.com/edgex/device-modbus:built ./iotech-docker-files"
-                sh "docker push docker.iotechsys.com/edgex/device-modbus:built"
+                sh "docker build --tag docker.iotechsys.com/edgexpert/device-modbus:built ./iotech-docker-files"
+                sh "docker push docker.iotechsys.com/edgexpert/device-modbus:built"
             }
 
         }

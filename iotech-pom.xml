@@ -37,6 +37,7 @@
 		<core-test.version>0.5.0-SNAPSHOT</core-test.version>
 		<core-exception.version>0.5.0-SNAPSHOT</core-exception.version>
 		<support-logging-client.version>0.5.0-SNAPSHOT</support-logging-client.version>
+		<edgexpert-utils.version>0.5.0-SNAPSHOT</edgexpert-utils.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 		<java.version>1.8</java.version>
@@ -159,6 +160,11 @@
 			<groupId>org.edgexfoundry</groupId>
 			<artifactId>core-data-client</artifactId>
 			<version>${core-data-client.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.iotechsys</groupId>
+			<artifactId>edgexpert-utils</artifactId>
+			<version>${edgexpert-utils.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>

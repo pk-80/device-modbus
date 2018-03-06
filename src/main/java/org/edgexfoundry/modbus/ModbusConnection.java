@@ -24,8 +24,13 @@ import java.util.HashMap;
 
 import javax.xml.bind.DatatypeConverter;
 
+import com.ghgande.j2mod.modbus.io.ModbusTransaction;
+import com.ghgande.j2mod.modbus.msg.*;
+import com.ghgande.j2mod.modbus.util.ModbusUtil;
 import org.edgexfoundry.domain.ModbusDevice;
 import org.edgexfoundry.domain.ModbusObject;
+import org.edgexfoundry.domain.PrimaryTable;
+import org.edgexfoundry.domain.PropertyValueType;
 import org.edgexfoundry.domain.meta.Addressable;
 import org.edgexfoundry.domain.meta.Protocol;
 import org.edgexfoundry.exception.BadCommandRequestException;
@@ -35,10 +40,6 @@ import org.edgexfoundry.support.logging.client.EdgeXLoggerFactory;
 import com.ghgande.j2mod.modbus.ModbusIOException;
 import com.ghgande.j2mod.modbus.io.ModbusSerialTransaction;
 import com.ghgande.j2mod.modbus.io.ModbusTCPTransaction;
-import com.ghgande.j2mod.modbus.msg.ModbusRequest;
-import com.ghgande.j2mod.modbus.msg.ReadMultipleRegistersRequest;
-import com.ghgande.j2mod.modbus.msg.ReadMultipleRegistersResponse;
-import com.ghgande.j2mod.modbus.msg.WriteSingleRegisterRequest;
 import com.ghgande.j2mod.modbus.net.SerialConnection;
 import com.ghgande.j2mod.modbus.net.TCPMasterConnection;
 import com.ghgande.j2mod.modbus.procimg.SimpleRegister;
@@ -140,89 +141,126 @@ public class ModbusConnection {
 
 	public String getValue(Object connection, Addressable addressable, ModbusObject object, ModbusDevice device, int retryCount) {
 		String result = "";
-		ReadMultipleRegistersResponse res = null; //the response
-		int startedAddress = Integer.parseInt(object.getAttributes().getHoldingRegister());
+
+		int unitId = Integer.valueOf(addressable.getPath());
+		PrimaryTable primaryTable = PrimaryTable.valueOf(object.getAttributes().getPrimaryTable());
+		PropertyValueType propertyValueType = PropertyValueType.valueOf(object.getProperties().getValue().getType());
+
+		int startedAddress = Integer.parseInt(object.getAttributes().getAddress()) - 1 ;
 		int baseAddress = 0;
 		if (device.getLocation()!=null && device.getLocation().getBaseAddress()!=null) {
 			baseAddress = device.getLocation().getBaseAddress();
 		}
 
-		ReadMultipleRegistersRequest req = new ReadMultipleRegistersRequest(baseAddress + startedAddress, 1);
-		logger.info("Holding Register:" + object.getAttributes().getHoldingRegister());
-		if(connection instanceof TCPMasterConnection){
-			TCPMasterConnection con = (TCPMasterConnection)connection;
+//		ReadMultipleRegistersRequest req = new ReadMultipleRegistersRequest(baseAddress + startedAddress, 1);
+		ModbusRequest req = this.prepareReadingRequest(primaryTable, propertyValueType, baseAddress + startedAddress);
+		req.setUnitID(unitId);
 
-			req.setUnitID(Integer.valueOf(addressable.getPath()));
+		try {
+			ModbusTransaction transaction = this.getModbusTransaction(connection, req);
 
-			try
-			{
-				if(!con.isConnected())
-					con.connect();
-				ModbusTCPTransaction transaction = new ModbusTCPTransaction(con);
-				transaction.setRequest(req);
-				transaction.execute();
-				res = (ReadMultipleRegistersResponse) transaction.getResponse();
-				result = "" + res.getRegisterValue(0);
-			}catch(ModbusIOException ioe){
-				retryCount ++;
-				if(retryCount < 3){
-					logger.warn("Cannot get the value:" + ioe.getMessage() + ",count:" + retryCount);
-					getValue(connection, addressable, object, device, retryCount);
+			transaction.setRequest(req);
+			transaction.execute();
+
+			ModbusRequest request = transaction.getRequest();
+			ModbusResponse response = transaction.getResponse();
+
+			logger.info("Request (Hex) : " + request.getHexMessage());
+			logger.info("Response(Hex) : " + response.getHexMessage());
+
+			byte[] responseData = response.getMessage();
+			byte[] data = new byte[responseData.length-1];
+
+			System.out.println("=============");
+			for (int i = 0; i < responseData.length; i++) {
+				if(i==0){
+					System.out.println(responseData[i]);
+				}else{
+					System.out.println(responseData[i]);
+					data[i - 1] = responseData[i];
 				}
-				else{
-					throw new BadCommandRequestException(ioe.getMessage());
-				}
-
 			}
-			catch(Exception e){
-				logger.error("General Exception e:" + e.getMessage());
 
-                throw new BadCommandRequestException(e.getMessage());
-			}
-			finally{
-				con.close();
-			}
-		}
-		else if(connection instanceof SerialConnection){
-			req.setUnitID(Integer.valueOf(addressable.getPath()));
-			req.setHeadless();
-			SerialConnection con = (SerialConnection)connection;
-			try
-			{
-				if(!con.isOpen())
-				{
-					con.open();
-				}
-				ModbusSerialTransaction transaction = new ModbusSerialTransaction(con);
-				transaction.setRequest(req);
-				transaction.execute();
-				Thread.sleep(1000);
-				res = (ReadMultipleRegistersResponse) transaction.getResponse();
-				result = "" + res.getRegisterValue(0);
-				logger.info("Result:" + result);
+			result = this.parseDataByte(propertyValueType,data);
 
-			}catch(ModbusIOException ioe){
-				retryCount ++;
-				if(retryCount < 3){
-					logger.warn("Cannot get the value:" + ioe.getMessage() + ",count:" + retryCount);
-					getValue(connection, addressable, object, device, retryCount);
-				}
-				else{
-					throw new BadCommandRequestException(ioe.getMessage());
-				}
-
+		}catch(ModbusIOException ioe){
+			retryCount ++;
+			if(retryCount < 3){
+				logger.warn("Cannot get the value:" + ioe.getMessage() + ",count:" + retryCount);
+				getValue(connection, addressable, object, device, retryCount);
 			}
-			catch(Exception e){
-				logger.error("General Exception e:" + e.getMessage());
-
-				throw new BadCommandRequestException(e.getMessage());
+			else{
+				throw new BadCommandRequestException(ioe.getMessage());
 			}
-			finally{
-				//con.close();
+
+		}catch(Exception e){
+			logger.error("General Exception e:" + e.getMessage());
+			throw new BadCommandRequestException(e.getMessage());
+		}finally{
+			if(connection instanceof TCPMasterConnection){
+				((TCPMasterConnection) connection).close();
+			}else if(connection instanceof SerialConnection){
+				((SerialConnection) connection).close();
 			}
 		}
 
 		return result;
+	}
+
+	private ModbusTransaction getModbusTransaction(Object connection, ModbusRequest req) throws Exception {
+		ModbusTransaction transaction = null ;
+		if(connection instanceof TCPMasterConnection){
+            TCPMasterConnection con = (TCPMasterConnection)connection;
+            if(!con.isConnected()){
+                con.connect();
+            }
+            transaction = new ModbusTCPTransaction(con);
+        }else if(connection instanceof SerialConnection){
+            req.setHeadless();
+            SerialConnection con = (SerialConnection)connection;
+            if(!con.isOpen()) {
+                con.open();
+            }
+            transaction = new ModbusSerialTransaction(con);
+        }
+		return transaction;
+	}
+
+	private ModbusRequest prepareReadingRequest(PrimaryTable primaryTable, PropertyValueType propertyValueType, int startingAddress) {
+		ModbusRequest modbusRequest = null ;
+		switch (primaryTable) {
+			case DISCRETES_INPUT:
+				modbusRequest = new ReadInputDiscretesRequest(startingAddress, propertyValueType.getRegisterQuantity());
+				break;
+			case COILS:
+				modbusRequest = new ReadCoilsRequest(startingAddress, propertyValueType.getRegisterQuantity());
+				break;
+			case INPUT_REGISTERS:
+				modbusRequest = new ReadInputRegistersRequest(startingAddress, propertyValueType.getRegisterQuantity());
+				break;
+			case HOLDING_REGISTER:
+				modbusRequest = new ReadMultipleRegistersRequest(startingAddress, propertyValueType.getRegisterQuantity());
+				break;
+		}
+		System.out.println(String.format("【 Function code : %s 】【starting address : %s 】", modbusRequest.getFunctionCode(), startingAddress));
+		return modbusRequest;
+	}
+
+	private String parseDataByte(PropertyValueType propertyValueType ,byte[] dataByte) {
+		switch (propertyValueType){
+			case UINT16:
+				return Short.toString(ModbusUtil.registerToShort(dataByte));
+			case UINT32:
+				return Integer.toString(ModbusUtil.registersToInt(dataByte));
+			case UINT64:
+				return Long.toString(ModbusUtil.registersToLong(dataByte));
+			case FLOAT32:
+				return Float.toString(ModbusUtil.registersToFloat(dataByte));
+			case FLOAT64:
+				return Double.toString(ModbusUtil.registersToDouble(dataByte));
+			default:
+				throw new RuntimeException("Mismatch property value type");
+		}
 	}
 
 	public String setValue(Object connection, Addressable addressable, ModbusObject object, String value, ModbusDevice device, int retryCount) {

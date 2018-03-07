@@ -157,9 +157,7 @@ public class ModbusConnection {
 		req.setUnitID(unitId);
 
 		try {
-			ModbusTransaction transaction = this.getModbusTransaction(connection, req);
-
-			transaction.setRequest(req);
+			ModbusTransaction transaction = this.createModbusTransaction(connection, req);
 			transaction.execute();
 
 			ModbusRequest request = transaction.getRequest();
@@ -168,20 +166,9 @@ public class ModbusConnection {
 			logger.info("Request (Hex) : " + request.getHexMessage());
 			logger.info("Response(Hex) : " + response.getHexMessage());
 
-			byte[] responseData = response.getMessage();
-			byte[] data = new byte[responseData.length-1];
+			byte[] dataBytes = this.fetchDataBytes(response);
 
-			System.out.println("=============");
-			for (int i = 0; i < responseData.length; i++) {
-				if(i==0){
-					System.out.println(responseData[i]);
-				}else{
-					System.out.println(responseData[i]);
-					data[i - 1] = responseData[i];
-				}
-			}
-
-			result = this.parseDataByte(propertyValueType,data);
+			result = this.parseDataBytes(propertyValueType,dataBytes);
 
 		}catch(ModbusIOException ioe){
 			retryCount ++;
@@ -207,25 +194,6 @@ public class ModbusConnection {
 		return result;
 	}
 
-	private ModbusTransaction getModbusTransaction(Object connection, ModbusRequest req) throws Exception {
-		ModbusTransaction transaction = null ;
-		if(connection instanceof TCPMasterConnection){
-            TCPMasterConnection con = (TCPMasterConnection)connection;
-            if(!con.isConnected()){
-                con.connect();
-            }
-            transaction = new ModbusTCPTransaction(con);
-        }else if(connection instanceof SerialConnection){
-            req.setHeadless();
-            SerialConnection con = (SerialConnection)connection;
-            if(!con.isOpen()) {
-                con.open();
-            }
-            transaction = new ModbusSerialTransaction(con);
-        }
-		return transaction;
-	}
-
 	private ModbusRequest prepareReadingRequest(PrimaryTable primaryTable, PropertyValueType propertyValueType, int startingAddress) {
 		ModbusRequest modbusRequest = null ;
 		switch (primaryTable) {
@@ -246,7 +214,42 @@ public class ModbusConnection {
 		return modbusRequest;
 	}
 
-	private String parseDataByte(PropertyValueType propertyValueType ,byte[] dataByte) {
+	private ModbusTransaction createModbusTransaction(Object connection, ModbusRequest req) throws Exception {
+		ModbusTransaction transaction = null ;
+		if(connection instanceof TCPMasterConnection){
+			TCPMasterConnection con = (TCPMasterConnection)connection;
+			if(!con.isConnected()){
+				con.connect();
+			}
+			transaction = new ModbusTCPTransaction(con);
+		}else if(connection instanceof SerialConnection){
+			req.setHeadless();
+			SerialConnection con = (SerialConnection)connection;
+			if(!con.isOpen()) {
+				con.open();
+			}
+			transaction = new ModbusSerialTransaction(con);
+		}
+		transaction.setRequest(req);
+		return transaction;
+	}
+
+	private byte[] fetchDataBytes(ModbusResponse response) {
+		byte[] responseData = response.getMessage();
+		byte[] dataBytes = new byte[responseData.length-1];
+
+		for (int i = 0; i < responseData.length; i++) {
+			if(i==0){
+				logger.info("The number of data bytes : " + responseData[i]);
+			}else{
+				logger.info("Data byte -> " + responseData[i]);
+				dataBytes[i - 1] = responseData[i];
+			}
+		}
+		return dataBytes;
+	}
+
+	private String parseDataBytes(PropertyValueType propertyValueType , byte[] dataByte) {
 		switch (propertyValueType){
 			case UINT16:
 				return Short.toString(ModbusUtil.registerToShort(dataByte));

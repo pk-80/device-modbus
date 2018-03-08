@@ -1,7 +1,7 @@
 package org.edgexfoundry.domain;
 
 public enum PropertyValueType {
-    FLOAT32(2), FLOAT64(4), UINT16(1), UINT32(2), UINT64(4);
+    FLOAT32(2), FLOAT64(4), INT16(1), INT32(2), INT64(4);
 
     int registerQuantity;
 

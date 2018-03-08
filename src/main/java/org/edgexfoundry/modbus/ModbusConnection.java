@@ -251,11 +251,11 @@ public class ModbusConnection {
 
 	private String parseDataBytes(PropertyValueType propertyValueType , byte[] dataByte) {
 		switch (propertyValueType){
-			case UINT16:
+			case INT16:
 				return Short.toString(ModbusUtil.registerToShort(dataByte));
-			case UINT32:
+			case INT32:
 				return Integer.toString(ModbusUtil.registersToInt(dataByte));
-			case UINT64:
+			case INT64:
 				return Long.toString(ModbusUtil.registersToLong(dataByte));
 			case FLOAT32:
 				return Float.toString(ModbusUtil.registersToFloat(dataByte));

@@ -23,6 +23,7 @@ public class ModbusLocation implements Serializable {
 			this.setBaseAddress(thisObject.getBaseAddress());
 			
 		} catch (Exception e) {
+			logger.debug(e.getMessage(), e);
 			logger.error("Cannot Construct ModbusLocation: " + e.getMessage());
 		}
 	}

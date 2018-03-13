@@ -34,9 +34,8 @@ public class ModbusAttribute implements Serializable {
 	// Replace these attributes with the Modbus
 	// specific metadata needed by the Modbus Driver
 	
-	private String HoldingRegister;
 	private String primaryTable;
-	private String address;
+	private String startingAddress;
 	
 	public ModbusAttribute(Object attributes) {
 		try {
@@ -44,25 +43,12 @@ public class ModbusAttribute implements Serializable {
 			String jsonString = gson.toJson(attributes);
 			ModbusAttribute thisObject = gson.fromJson(jsonString, this.getClass());
 			
-			this.setHoldingRegister(thisObject.getHoldingRegister());
 			this.setPrimaryTable(thisObject.getPrimaryTable());
-			this.setAddress(thisObject.getAddress());
+			this.setAddress(thisObject.getStartingAddress());
 			
 		} catch (Exception e) {
 			logger.error("Cannot Construct ModbusAttribute: " + e.getMessage());
 		}
-	}
-
-
-	public String getHoldingRegister()
-	{
-		return HoldingRegister;
-	}
-
-
-	public void setHoldingRegister(String HoldingRegister)
-	{
-		this.HoldingRegister = HoldingRegister;
 	}
 
 	public String getPrimaryTable() {
@@ -73,11 +59,17 @@ public class ModbusAttribute implements Serializable {
 		this.primaryTable = primaryTable;
 	}
 
-	public String getAddress() {
-		return address;
+	public String getStartingAddress() {
+		return startingAddress;
 	}
 
-	public void setAddress(String address) {
-		this.address = address;
+	public void setAddress(String startingAddress) {
+		this.startingAddress = startingAddress;
 	}
+
+	@Override
+	public String toString() {
+		return "ModbusAttribute [primaryTable=" + primaryTable + ", startingAddress=" + startingAddress + "]";
+	}
+	
 }

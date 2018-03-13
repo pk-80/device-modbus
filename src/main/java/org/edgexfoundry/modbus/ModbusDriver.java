@@ -81,7 +81,7 @@ public class ModbusDriver {
 
 	// Modify this function as needed to pass necessary metadata from the device and its profile to the driver interface
 	public String processCommand(String operation, Addressable addressable, ModbusObject object, String value, ModbusDevice device) {
-		logger.info("ProcessCommand: " + operation + ", addressable:" + addressable + ", attributes:" + object.getAttributes().getHoldingRegister() + ", value: " + value );
+		logger.info("ProcessCommand: " + operation + ", addressable:" + addressable + ", attributes:" + object.getAttributes().toString() + ", value: " + value );
 		String result = ""; 
 		Object connection = modbusConInstance.getModbusConnection(addressable);
 		if (operation.toLowerCase().equals("get")) {

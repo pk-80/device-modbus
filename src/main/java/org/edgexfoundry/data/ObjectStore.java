@@ -34,7 +34,6 @@ import org.edgexfoundry.domain.meta.ResourceOperation;
 import org.edgexfoundry.exception.controller.DataValidationException;
 import org.edgexfoundry.exception.controller.NotFoundException;
 import org.edgexfoundry.handler.CoreDataMessageHandler;
-import org.edgexfoundry.modbus.ObjectTransform;
 import org.edgexfoundry.support.logging.client.EdgeXLogger;
 import org.edgexfoundry.support.logging.client.EdgeXLoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,8 +54,8 @@ public class ObjectStore {
 	@Autowired
 	private ProfileStore profiles;
 	
-	@Autowired
-	private ObjectTransform transform;
+//	@Autowired
+//	private ObjectTransform transform;
 	
 	@Autowired
 	private CoreDataMessageHandler processor;
@@ -140,33 +139,34 @@ public class ObjectStore {
 		
 		PropertyValue propValue = object.getProperties().getValue();
 		
-		String transformResult = transform.transform(propValue, result);
+		//skip object transform for Modbus reading value
+		//String transformResult = transform.transform(propValue, result);
 		
 		// if there is an assertion set for the object on a get command, test it
 		// if it fails the assertion, pass error to core services (disable device?)
 		if (propValue.getAssertion() != null)
-			if(!transformResult.equals(propValue.getAssertion().toString())) {
+			if(!result.equals(propValue.getAssertion().toString())) {
 				device.setOperatingState(OperatingState.DISABLED);
-				return "Assertion failed with value: " + transformResult;
+				return "Assertion failed with value: " + result;
 			}
 		
 		Map<String, String> mappings = operation.getMappings();
 		
-		if (mappings != null && mappings.containsKey(transformResult))
-			transformResult = mappings.get(transformResult);
+		if (mappings != null && mappings.containsKey(result))
+			result = mappings.get(result);
 		
 		// temporarily use Secondary field for functions
 		List<String> functions = operation.getTransformFunctions();
 		if (functions != null && !functions.isEmpty()){
 			try {
-				transformResult = ReadingValueTransformer.transformByFunctions(transformResult, functions);
+				result = ReadingValueTransformer.transformByFunctions(result, functions);
 			} catch (DataTransformException e) {
 				logger.error(e.getMessage(), e);
 				throw new DataValidationException(e.getMessage());
 			}
 		}
 		
-		return transformResult;
+		return result;
 	}
 
 	public String get(String deviceId, String object) {

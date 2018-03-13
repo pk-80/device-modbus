@@ -74,7 +74,8 @@ public class DeviceStore {
 		if (devices.containsKey(device.getName())) {
 			devices.remove(device.getName());			
 			Modbus.disconnectDevice(device);
-			deviceClient.updateOpState(device.getId(), OperatingState.DISABLED.name());
+			//commented out updateOpState because the device has been removed
+			//deviceClient.updateOpState(device.getId(), OperatingState.DISABLED.name());
 			profiles.removeDevice(device);
 		}
 		return true;

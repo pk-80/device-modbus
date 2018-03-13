@@ -28,8 +28,6 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ObjectTransform {
-	
-	private static final String INTEGER_TYPE = "Integer";
 
 	@Autowired
 	ObjectStore objectCache;
@@ -49,9 +47,6 @@ public class ObjectTransform {
 	}
 
 	public String transform(PropertyValue value, String result) {
-		if (INTEGER_TYPE.equals(value.getType())) {
-			return result;
-		}
 		
 		double floatValue;
 		

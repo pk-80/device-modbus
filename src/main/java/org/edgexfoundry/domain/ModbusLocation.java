@@ -11,17 +11,22 @@ public class ModbusLocation implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 	private final static EdgeXLogger logger = EdgeXLoggerFactory.getEdgeXLogger(ModbusAttribute.class);
-	
-	private Integer baseAddress;
-	
+
+	private Integer baseAddress = 0;
+
 	public ModbusLocation(Object location) {
+		if (location == null) {
+			return;
+		}
+		
 		try {
 			Gson gson = new Gson();
 			String jsonString = gson.toJson(location);
 			ModbusLocation thisObject = gson.fromJson(jsonString, this.getClass());
-			
-			this.setBaseAddress(thisObject.getBaseAddress());
-			
+
+			if (thisObject.getBaseAddress() != null) {
+				this.setBaseAddress(thisObject.getBaseAddress());
+			}
 		} catch (Exception e) {
 			logger.debug(e.getMessage(), e);
 			logger.error("Cannot Construct ModbusLocation: " + e.getMessage());

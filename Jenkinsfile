@@ -13,9 +13,9 @@ pipeline {
             }
         }
         stage ('Deploy Artifact') {
-            when {
-                branch 'master'
-            }
+//            when {
+//                branch 'master'
+//            }
             agent {
                 docker {
                    image 'maven:3-jdk-8'
@@ -28,15 +28,21 @@ pipeline {
         }
 
         stage ('Build & Deploy Docker image') {
-            when {
-                branch 'master'
-            }
+//            when {
+//                branch 'master'
+//            }
             agent any
             steps {
-                sh "mv ./target/*.jar ./iotech-docker-files/"
-                sh "docker rmi docker.iotechsys.com/edgexpert/device-modbus:built"
-                sh "docker build --tag docker.iotechsys.com/edgexpert/device-modbus:built ./iotech-docker-files"
-                sh "docker push docker.iotechsys.com/edgexpert/device-modbus:built"
+                script {
+                    sh "mv ./target/*.jar ./iotech-docker-files/"
+                    try {
+                        sh "docker rmi docker.iotechsys.com/edgexpert/device-modbus:built"
+                    } catch (exc) {
+                        echo "exception happens during remove the older docker image, ignoring the exception"
+                    }
+                    sh "docker build --tag docker.iotechsys.com/edgexpert/device-modbus:built ./iotech-docker-files"
+                    sh "docker push docker.iotechsys.com/edgexpert/device-modbus:built"
+                }
             }
 
         }

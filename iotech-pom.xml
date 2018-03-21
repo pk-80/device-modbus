@@ -21,7 +21,7 @@
  <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>org.edgexfoundry</groupId>
+	<groupId>com.iotechsys</groupId>
 	<artifactId>device-modbus</artifactId>
 	<version>0.5.0-SNAPSHOT</version>
 	<name>EdgeX Foundry Modbus Device Micro Service</name>
@@ -132,32 +132,32 @@
 			<version>${j2mod.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.edgexfoundry</groupId>
+			<groupId>com.iotechsys</groupId>
 			<artifactId>core-exception</artifactId>
 			<version>${core-exception.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.edgexfoundry</groupId>
+			<groupId>com.iotechsys</groupId>
 			<artifactId>core-domain</artifactId>
 			<version>${core-domain.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.edgexfoundry</groupId>
+			<groupId>com.iotechsys</groupId>
 			<artifactId>core-test</artifactId>
 			<version>${core-test.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.edgexfoundry</groupId>
+			<groupId>com.iotechsys</groupId>
 			<artifactId>support-logging-client</artifactId>
 			<version>${support-logging-client.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.edgexfoundry</groupId>
+			<groupId>com.iotechsys</groupId>
 			<artifactId>core-metadata-client</artifactId>
 			<version>${core-metadata-client.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.edgexfoundry</groupId>
+			<groupId>com.iotechsys</groupId>
 			<artifactId>core-data-client</artifactId>
 			<version>${core-data-client.version}</version>
 		</dependency>

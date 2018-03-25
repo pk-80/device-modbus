@@ -36,6 +36,8 @@ public class ModbusAttribute implements Serializable {
 	
 	private String primaryTable;
 	private String startingAddress;
+	private boolean isByteSwap = false;
+	private boolean isWordSwap = false;
 	
 	public ModbusAttribute(Object attributes) {
 		try {
@@ -67,9 +69,26 @@ public class ModbusAttribute implements Serializable {
 		this.startingAddress = startingAddress;
 	}
 
+	public boolean isByteSwap() {
+		return isByteSwap;
+	}
+
+	public void setByteSwap(boolean isByteSwap) {
+		this.isByteSwap = isByteSwap;
+	}
+
+	public boolean isWordSwap() {
+		return isWordSwap;
+	}
+
+	public void setWordSwap(boolean isWordSwap) {
+		this.isWordSwap = isWordSwap;
+	}
+
 	@Override
 	public String toString() {
-		return "ModbusAttribute [primaryTable=" + primaryTable + ", startingAddress=" + startingAddress + "]";
+		return "ModbusAttribute [primaryTable=" + primaryTable + ", startingAddress=" + startingAddress
+				+ ", isByteSwap=" + isByteSwap + ", isWordSwap=" + isWordSwap + "]";
 	}
 	
 }

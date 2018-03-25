@@ -20,10 +20,11 @@
 package org.edgexfoundry.modbus;
 
 import java.net.InetAddress;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.xml.bind.DatatypeConverter;
 
+import org.edgexfoundry.domain.ModbusAttribute;
 import org.edgexfoundry.domain.ModbusDevice;
 import org.edgexfoundry.domain.ModbusObject;
 import org.edgexfoundry.domain.ModbusValueType;
@@ -55,27 +56,25 @@ import com.ghgande.j2mod.modbus.util.SerialParameters;
 
 public class ModbusConnection {
 
-	private static HashMap<String, Object> connections;
+	private static ConcurrentHashMap<String, Object> connections;
 	private final static EdgeXLogger logger = EdgeXLoggerFactory.getEdgeXLogger(ModbusConnection.class);
 
 	public ModbusConnection() {
-		connections = new HashMap<String, Object>();
+		connections = new ConcurrentHashMap<String, Object>();
 	}
 
 	public Object getModbusConnection(Addressable addressable) {
 		Object connection = null;
-		synchronized (connections) {
-			if (connections.containsKey(addressable.getAddress())) {
-				connection = connections.get(addressable.getAddress());
-			} else {
-				if (addressable.getProtocol() == Protocol.HTTP) {
-					logger.info("creating TCP connection");
-					connection = createTCPConnection(addressable);
-				} else /* if(addressable.getProtocol() == Protocol.OTHER) */ {
-					connection = createSerialConnection(addressable);
-				}
-				connections.put(addressable.getAddress(), connection);
+		if (connections.containsKey(addressable.getBaseURL())) {
+			connection = connections.get(addressable.getBaseURL());
+		} else {
+			if (addressable.getProtocol() == Protocol.HTTP || addressable.getProtocol() == Protocol.TCP) {
+				logger.info("creating TCP connection");
+				connection = createTCPConnection(addressable);
+			} else /* if(addressable.getProtocol() == Protocol.OTHER) */ {
+				connection = createSerialConnection(addressable);
 			}
+			connections.put(addressable.getBaseURL(), connection);
 		}
 		return connection;
 	}
@@ -116,9 +115,9 @@ public class ModbusConnection {
 				params.setEcho(false);
 			}
 			con = new SerialConnection(params);
-			con.setTimeout(100);
-			con.open();
-
+			// con.setTimeout(100); 100ms timeout is too short  
+			// con.open();
+			logger.info("Created Modbus RTU Connection");
 		} catch (Exception e) {
 			logger.debug(e.getMessage(), e);
 			logger.error("Exception in creating Serial connection:" + e.getMessage());
@@ -134,7 +133,7 @@ public class ModbusConnection {
 			con = new TCPMasterConnection(addr);
 			con.setPort(addressable.getPort());
 			// con.connect();
-			logger.info("Created TCP Connection");
+			logger.info("Created Modbus TCP Connection");
 		} catch (Exception e) {
 			logger.debug(e.getMessage(), e);
 			logger.error("Exception in creating TCP connection:" + e);
@@ -188,7 +187,7 @@ public class ModbusConnection {
 
 			byte[] dataBytes = this.fetchDataBytes(response);
 
-			result = this.parseDataBytes(propertyValueType, object.getProperties().getValue(), dataBytes);
+			result = this.prepareRequestDataBytes(propertyValueType, object, dataBytes);
 
 		} catch (ModbusIOException ioe) {
 			retryCount++;
@@ -196,6 +195,7 @@ public class ModbusConnection {
 				logger.warn("Cannot get the value:" + ioe.getMessage() + ",count:" + retryCount);
 				getValue(connection, addressable, object, device, retryCount);
 			} else {
+				logger.debug(ioe.getMessage(), ioe);
 				throw new BadCommandRequestException(ioe.getMessage());
 			}
 
@@ -273,7 +273,10 @@ public class ModbusConnection {
 		return dataBytes;
 	}
 
-	private String parseDataBytes(ModbusValueType valueType, PropertyValue propertyValue, byte[] dataBytes) {
+	private String prepareRequestDataBytes(ModbusValueType valueType, ModbusObject object, byte[] dataBytes) {
+		PropertyValue propertyValue = object.getProperties().getValue();
+		ModbusAttribute attributes = object.getAttributes();
+		byte[] newDataBytes = dataBytes;
 		switch (valueType) {
 		case INT16:
 			if (propertyValue.getSigned()) {
@@ -282,23 +285,62 @@ public class ModbusConnection {
 				return Integer.toString(ModbusUtil.registerToUnsignedShort(dataBytes));
 			}
 		case INT32:
-			byte[] newDataBytes = new byte[4];
-			if (dataBytes.length == 8) {
-				newDataBytes[0] = dataBytes[2];
-				newDataBytes[1] = dataBytes[3];
-				newDataBytes[2] = dataBytes[6];
-				newDataBytes[3] = dataBytes[7];
-			}
+			newDataBytes = sortLongByteForINT32(dataBytes);
+			newDataBytes = swap32BitDataBytes(attributes, newDataBytes);
 			return Integer.toString(ModbusUtil.registersToInt(newDataBytes));
 		case INT64:
 			return Long.toString(ModbusUtil.registersToLong(dataBytes));
 		case FLOAT32:
-			return Float.toString(ModbusUtil.registersToFloat(dataBytes));
+			newDataBytes = swap32BitDataBytes(attributes, dataBytes);
+			return Float.toString(ModbusUtil.registersToFloat(newDataBytes));
 		case FLOAT64:
 			return Double.toString(ModbusUtil.registersToDouble(dataBytes));
 		default:
 			throw new DataValidationException("Mismatch property value type");
 		}
+	}
+
+	private byte[] sortLongByteForINT32(byte[] dataBytes) {
+		byte[] newDataBytes = new byte[4];
+		if (dataBytes.length == 8) {
+			newDataBytes[0] = dataBytes[2];
+			newDataBytes[1] = dataBytes[3];
+			newDataBytes[2] = dataBytes[6];
+			newDataBytes[3] = dataBytes[7];
+		}
+		return newDataBytes;
+	}
+	
+	private byte[] swap32BitDataBytes(ModbusAttribute attributes, byte[] newDataBytes) {
+		if (attributes.isByteSwap()) {
+			newDataBytes = this.swapByteFor32Bit(newDataBytes);
+		}
+		if (attributes.isWordSwap()){
+			newDataBytes = this.swapWordFor32Bit(newDataBytes);
+		}
+		return newDataBytes;
+	}
+	
+	private byte[] swapByteFor32Bit(byte[] dataBytes) {
+		byte[] newDataBytes = new byte[4];
+		if (dataBytes.length >= 4) {
+			newDataBytes[0] = dataBytes[1];
+			newDataBytes[1] = dataBytes[0];
+			newDataBytes[2] = dataBytes[3];
+			newDataBytes[3] = dataBytes[2];
+		}
+		return newDataBytes;
+	}
+	
+	private byte[] swapWordFor32Bit(byte[] dataBytes) {
+		byte[] newDataBytes = new byte[4];
+		if (dataBytes.length >= 4) {
+			newDataBytes[0] = dataBytes[2];
+			newDataBytes[1] = dataBytes[3];
+			newDataBytes[2] = dataBytes[0];
+			newDataBytes[3] = dataBytes[1];
+		}
+		return newDataBytes;
 	}
 
 	public String setValue(Object connection, Addressable addressable, ModbusObject object, String value,

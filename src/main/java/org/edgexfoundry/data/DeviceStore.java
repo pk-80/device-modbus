@@ -150,7 +150,7 @@ public class DeviceStore {
 
 	public boolean update(String deviceId) {
 		ModbusDevice device = new ModbusDevice(deviceClient.device(deviceId));
-		ModbusDevice localDevice = getDeviceById(deviceId);
+		ModbusDevice localDevice = getModbusDeviceById(deviceId);
 		if (device != null && localDevice != null && compare(device,localDevice))
 			return true;
 		return add(device);
@@ -200,8 +200,11 @@ public class DeviceStore {
 		metaDevices = deviceClient.devicesForServiceByName(serviceName);
 		for (Device metaDevice: metaDevices) {
 			Device device = devices.get(metaDevice.getName());
-			if (device != null)
+			if (device != null) {
 				device.setOperatingState(metaDevice.getOperatingState());
+			} else {
+				devices.put(metaDevice.getName(), new ModbusDevice(metaDevice));
+			}
 		}
 		return metaDevices;
 	}
@@ -225,7 +228,7 @@ public class DeviceStore {
 			return null;
 	}
 	
-	public ModbusDevice getDeviceById(String deviceId) {
+	public Device getDeviceById(String deviceId) {
 		if (devices != null) {
 			return devices.values().stream().filter(device -> device.getId().equals(deviceId)).findAny().orElse(null);
 		}
@@ -246,6 +249,8 @@ public class DeviceStore {
 			if (device == null) { 
 				logger.error("Device not present with id " + deviceId);
 				throw new NotFoundException("device", deviceId);
+			} else {
+				devices.put(device.getName(), new ModbusDevice(device));
 			}
 		}
 		return device.getAdminState().equals(AdminState.LOCKED) || device.getOperatingState().equals(OperatingState.DISABLED);

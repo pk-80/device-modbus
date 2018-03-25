@@ -301,14 +301,16 @@ public class ModbusConnection {
 	}
 
 	private byte[] sortLongByteForINT32(byte[] dataBytes) {
-		byte[] newDataBytes = new byte[4];
 		if (dataBytes.length == 8) {
+			byte[] newDataBytes = new byte[4];
 			newDataBytes[0] = dataBytes[2];
 			newDataBytes[1] = dataBytes[3];
 			newDataBytes[2] = dataBytes[6];
 			newDataBytes[3] = dataBytes[7];
+			return newDataBytes;
+		} else {
+			return dataBytes;
 		}
-		return newDataBytes;
 	}
 	
 	private byte[] swap32BitDataBytes(ModbusAttribute attributes, byte[] newDataBytes) {

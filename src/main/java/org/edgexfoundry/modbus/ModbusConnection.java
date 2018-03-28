@@ -48,6 +48,8 @@ import com.ghgande.j2mod.modbus.msg.ReadInputDiscretesRequest;
 import com.ghgande.j2mod.modbus.msg.ReadInputRegistersRequest;
 import com.ghgande.j2mod.modbus.msg.ReadMultipleRegistersRequest;
 import com.ghgande.j2mod.modbus.msg.WriteSingleRegisterRequest;
+import com.ghgande.j2mod.modbus.msg.WriteMultipleCoilsRequest;
+import com.ghgande.j2mod.modbus.msg.WriteMultipleRegistersRequest;
 import com.ghgande.j2mod.modbus.net.SerialConnection;
 import com.ghgande.j2mod.modbus.net.TCPMasterConnection;
 import com.ghgande.j2mod.modbus.procimg.SimpleRegister;
@@ -146,33 +148,16 @@ public class ModbusConnection {
 		String result = "";
 
 		int unitId = Integer.valueOf(addressable.getPath());
-		PrimaryTable primaryTable;
-		try {
-			primaryTable = PrimaryTable.valueOf(object.getAttributes().getPrimaryTable());
-		} catch (Exception e) {
-			logger.error(e.getMessage(), e);
-			throw new DataValidationException(
-					"Modbus Primary Table definition error. Please identify DISCRETES_INPUT, COILS, INPUT_REGISTERS, or HOLDING_REGISTER");
-		}
 
-		ModbusValueType propertyValueType;
-		try {
-			propertyValueType = ModbusValueType.valueOf(object.getProperties().getValue().getType());
-		} catch (Exception e) {
-			logger.error(e.getMessage(), e);
-			throw new DataValidationException(
-					"Modbus Value Type definition error. Please identify FLOAT32, FLOAT64, INT16, INT32, or INT64");
-		}
+		PrimaryTable primaryTable = this.getPrimaryTable(object);
 
-		int startedAddress = Integer.parseInt(object.getAttributes().getStartingAddress()) - 1;
-		int baseAddress = 0;
-		if (device.getLocation() != null && device.getLocation().getBaseAddress() != null) {
-			baseAddress = device.getLocation().getBaseAddress();
-		}
+		ModbusValueType propertyValueType = this.getModbusValueType(object);
+
+		int referenceAddress = this.getReferenceAddress(object, device);
 
 		// ReadMultipleRegistersRequest req = new
 		// ReadMultipleRegistersRequest(baseAddress + startedAddress, 1);
-		ModbusRequest req = this.prepareReadingRequest(primaryTable, propertyValueType, baseAddress + startedAddress);
+		ModbusRequest req = this.prepareReadingRequest(primaryTable, propertyValueType, referenceAddress);
 		req.setUnitID(unitId);
 
 		try {
@@ -214,27 +199,51 @@ public class ModbusConnection {
 		return result;
 	}
 
+	private ModbusValueType getModbusValueType(ModbusObject object) {
+		ModbusValueType propertyValueType;
+		try {
+			propertyValueType = ModbusValueType.valueOf(object.getProperties().getValue().getType());
+		} catch (Exception e) {
+			logger.error(e.getMessage(), e);
+			throw new DataValidationException(
+					"Modbus Value Type definition error. Please identify FLOAT32, FLOAT64, INT16, INT32, or INT64");
+		}
+		return propertyValueType;
+	}
+
+	private PrimaryTable getPrimaryTable(ModbusObject object) {
+		PrimaryTable primaryTable;
+		try {
+			primaryTable = PrimaryTable.valueOf(object.getAttributes().getPrimaryTable());
+		} catch (Exception e) {
+			logger.error(e.getMessage(), e);
+			throw new DataValidationException(
+					"Modbus Primary Table definition error. Please identify DISCRETES_INPUT, COILS, INPUT_REGISTERS, or HOLDING_REGISTER");
+		}
+		return primaryTable;
+	}
+
 	private ModbusRequest prepareReadingRequest(PrimaryTable primaryTable, ModbusValueType valueType,
-			int startingAddress) {
+			int referenceAddress) {
 		ModbusRequest modbusRequest = null;
 		switch (primaryTable) {
 		case DISCRETES_INPUT:
-			modbusRequest = new ReadInputDiscretesRequest(startingAddress, valueType.getLength());
+			modbusRequest = new ReadInputDiscretesRequest(referenceAddress, valueType.getLength());
 			break;
 		case COILS:
-			modbusRequest = new ReadCoilsRequest(startingAddress, valueType.getLength());
+			modbusRequest = new ReadCoilsRequest(referenceAddress, valueType.getLength());
 			break;
 		case INPUT_REGISTERS:
-			modbusRequest = new ReadInputRegistersRequest(startingAddress, valueType.getLength());
+			modbusRequest = new ReadInputRegistersRequest(referenceAddress, valueType.getLength());
 			break;
 		case HOLDING_REGISTERS:
-			modbusRequest = new ReadMultipleRegistersRequest(startingAddress, valueType.getLength());
+			modbusRequest = new ReadMultipleRegistersRequest(referenceAddress, valueType.getLength());
 			break;
 		default:
 
 		}
 		logger.debug(String.format("[ Function code : %s ][ starting address : %s ]", modbusRequest.getFunctionCode(),
-				startingAddress));
+				referenceAddress));
 		return modbusRequest;
 	}
 
@@ -355,87 +364,80 @@ public class ModbusConnection {
 
 			scaledValue = newValue.intValue() + "";
 		}
+		logger.info("Setting value here scale:" + object.getProperties().getValue().getScale() + ", property:"
+				+ object.getName() + "Value:" + value);
 
+		int referenceAddress = this.getReferenceAddress(object, device);
+
+		ModbusRequest req = new WriteSingleRegisterRequest(referenceAddress, new SimpleRegister(Integer.parseInt(scaledValue)));
+
+		try {
+			ModbusTransaction transaction = this.createModbusTransaction(connection,req);
+			transaction.execute();
+
+			ModbusRequest request = transaction.getRequest();
+			ModbusResponse response = transaction.getResponse();
+
+			logger.debug("Request (Hex) : " + request.getHexMessage());
+			logger.debug("Response(Hex) : " + response.getHexMessage());
+
+			byte[] dataBytes = this.fetchDataBytes(response);
+
+			result = response.getHexMessage();
+			DatatypeConverter.parseHexBinary(result.replaceAll(" ", ""));
+			logger.info("After setting value:" + result);
+
+			result = scaledValue;
+
+		}catch (ModbusIOException ioe) {
+			retryCount++;
+			if (retryCount < 3) {
+				logger.error("Cannot set the value:" + ioe.getMessage() + ",count:" + retryCount);
+				setValue(connection, addressable, object, value, device, retryCount);
+			} else {
+				throw new BadCommandRequestException(ioe.getMessage());
+			}
+		} catch (Exception e) {
+			logger.debug(e.getMessage(), e);
+			logger.error("Cannot set the value general Exception:" + e.getMessage());
+			throw new BadCommandRequestException(e.getMessage());
+		} finally {
+			if (connection instanceof TCPMasterConnection) {
+				((TCPMasterConnection) connection).close();
+			} else if (connection instanceof SerialConnection) {
+				((SerialConnection) connection).close();
+			}
+		}
+
+		return result;
+	}
+
+	private int getReferenceAddress(ModbusObject object, ModbusDevice device) {
 		int startingAddress = Integer.parseInt(object.getAttributes().getStartingAddress()) - 1;
 		int baseAddress = 0;
 		if (device.getLocation() != null && device.getLocation().getBaseAddress() != null) {
 			baseAddress = device.getLocation().getBaseAddress();
 		}
 
-		ModbusRequest req = new WriteSingleRegisterRequest(baseAddress + startingAddress,
-				new SimpleRegister(Integer.parseInt(scaledValue)));
-		if (connection instanceof TCPMasterConnection) {
-			TCPMasterConnection con = (TCPMasterConnection) connection;
-			logger.info("Setting value here scale:" + object.getProperties().getValue().getScale() + ", property:"
-					+ object.getName() + "Value:" + value);
-			try {
-				req.setUnitID(Integer.valueOf(addressable.getPath()));
-				con.connect();
-				ModbusTCPTransaction transaction = new ModbusTCPTransaction(con);
-				transaction.setRequest(req);
-				transaction.execute();
-				result = transaction.getResponse().getHexMessage();
-				DatatypeConverter.parseHexBinary(result.replaceAll(" ", ""));
-				logger.info("After setting value:" + result);
-				result = scaledValue;
-			} catch (ModbusIOException ioe) {
+		return baseAddress + startingAddress;
+	}
 
-				retryCount++;
-				if (retryCount < 3) {
-					logger.error("Cannot set the value:" + ioe.getMessage() + ",count:" + retryCount);
-					setValue(connection, addressable, object, value, device, retryCount);
-				} else {
+	private ModbusRequest prepareWritingRequest(PrimaryTable primaryTable, ModbusValueType valueType,
+												int referenceAddress) {
+		ModbusRequest modbusRequest = null;
+		switch (primaryTable) {
+			case COILS:
+				modbusRequest = new WriteMultipleCoilsRequest(referenceAddress, valueType.getLength());
+				break;
+			case HOLDING_REGISTERS:
+				WriteMultipleRegistersRequest request = new WriteMultipleRegistersRequest();
+				request.setReference(referenceAddress);
+				break;
+			default:
 
-					throw new BadCommandRequestException(ioe.getMessage());
-				}
-
-			} catch (Exception e) {
-				logger.debug(e.getMessage(), e);
-				logger.error("Cannot set the value general Exception:" + e.getMessage());
-				throw new BadCommandRequestException(e.getMessage());
-			}
-
-			finally {
-				// transaction = null;
-				con.close();
-			}
-		} else if (connection instanceof SerialConnection) {
-			SerialConnection con = (SerialConnection) connection;
-			logger.info("Setting value here scale:" + object.getProperties().getValue().getScale() + ", property:"
-					+ object.getName() + "Value:" + value);
-			try {
-				req.setUnitID(Integer.valueOf(addressable.getPath()));
-				con.open();
-				ModbusSerialTransaction transaction = new ModbusSerialTransaction(con);
-				transaction.setRequest(req);
-				transaction.execute();
-				result = transaction.getResponse().getHexMessage();
-				DatatypeConverter.parseHexBinary(result.replaceAll(" ", ""));
-				logger.info("After setting value:" + result);
-				result = scaledValue;
-			} catch (ModbusIOException ioe) {
-
-				retryCount++;
-				if (retryCount < 3) {
-					logger.error("Cannot set the value:" + ioe.getMessage() + ",count:" + retryCount);
-					setValue(connection, addressable, object, value, device, retryCount);
-				} else {
-
-					throw new BadCommandRequestException(ioe.getMessage());
-				}
-
-			} catch (Exception e) {
-				logger.debug(e.getMessage(), e);
-				logger.error("Cannot set the value general Exception:" + e.getMessage());
-				throw new BadCommandRequestException(e.getMessage());
-			}
-
-			finally {
-				// transaction = null;
-				con.close();
-			}
 		}
-
-		return result;
+		logger.debug(String.format("[ Function code : %s ][ starting address : %s ]", modbusRequest.getFunctionCode(),
+				referenceAddress));
+		return modbusRequest;
 	}
 }

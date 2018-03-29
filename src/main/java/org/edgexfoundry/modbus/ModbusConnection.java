@@ -24,6 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.xml.bind.DatatypeConverter;
 
+import com.ghgande.j2mod.modbus.procimg.Register;
+import com.ghgande.j2mod.modbus.procimg.SimpleInputRegister;
 import org.edgexfoundry.domain.ModbusAttribute;
 import org.edgexfoundry.domain.ModbusDevice;
 import org.edgexfoundry.domain.ModbusObject;
@@ -356,20 +358,34 @@ public class ModbusConnection {
 
 	public String setValue(Object connection, Addressable addressable, ModbusObject object, String value,
 			ModbusDevice device, int retryCount) {
+		PrimaryTable primaryTable = this.getPrimaryTable(object);
+		ModbusValueType propertyValueType = this.getModbusValueType(object);
 		String result = "";
 		String scaledValue = "";
+		Register[] registers = null ;
 		if (value != null) {
 			float scale = Float.parseFloat(object.getProperties().getValue().getScale());
 			Float newValue = (Integer.parseInt(value) / scale);
 
 			scaledValue = newValue.intValue() + "";
+			byte[] requestData = this.prepareRequestDataBytes(propertyValueType,object,newValue);
+			registers = this.prepareRegisters(propertyValueType,requestData);
 		}
+
+
 		logger.info("Setting value here scale:" + object.getProperties().getValue().getScale() + ", property:"
 				+ object.getName() + "Value:" + value);
 
+
 		int referenceAddress = this.getReferenceAddress(object, device);
 
-		ModbusRequest req = new WriteSingleRegisterRequest(referenceAddress, new SimpleRegister(Integer.parseInt(scaledValue)));
+		ModbusRequest req = this.prepareWritingRequest(primaryTable,propertyValueType,referenceAddress);
+
+		if(req instanceof WriteMultipleRegistersRequest){
+			((WriteMultipleRegistersRequest) req).setRegisters(registers);
+		}else if(req instanceof WriteMultipleCoilsRequest){
+//			((WriteMultipleCoilsRequest) req).setCoils(registers);
+		}
 
 		try {
 			ModbusTransaction transaction = this.createModbusTransaction(connection,req);
@@ -386,7 +402,7 @@ public class ModbusConnection {
 			result = response.getHexMessage();
 			DatatypeConverter.parseHexBinary(result.replaceAll(" ", ""));
 			logger.info("After setting value:" + result);
-
+			logger.info("After setting value:" + ModbusUtil.registersToInt(response.getMessage()));
 			result = scaledValue;
 
 		}catch (ModbusIOException ioe) {
@@ -422,6 +438,41 @@ public class ModbusConnection {
 		return baseAddress + startingAddress;
 	}
 
+	private byte[] prepareRequestDataBytes(ModbusValueType valueType, ModbusObject object, Float value ) {
+		PropertyValue propertyValue = object.getProperties().getValue();
+		ModbusAttribute attributes = object.getAttributes();
+		byte[] requestDataBytes;
+		switch (valueType) {
+			case INT16:
+				if (propertyValue.getSigned()) {
+					return ModbusUtil.shortToRegister(value.shortValue());
+				} else {
+					return ModbusUtil.unsignedShortToRegister(value.shortValue());
+				}
+			case INT32:
+				requestDataBytes = ModbusUtil.intToRegisters(value.intValue());
+				requestDataBytes = sortLongByteForINT32(requestDataBytes);
+				requestDataBytes = swap32BitDataBytes(attributes, requestDataBytes);
+				return requestDataBytes;
+			case INT64:
+				return ModbusUtil.longToRegisters(value.longValue());
+			case FLOAT32:
+				requestDataBytes = ModbusUtil.floatToRegisters(value);
+				requestDataBytes = swap32BitDataBytes(attributes, requestDataBytes);
+				return requestDataBytes;
+			case FLOAT64:
+				return ModbusUtil.doubleToRegisters(value.doubleValue());
+			default:
+				throw new DataValidationException("Mismatch property value type");
+		}
+	}
+	private Register[] prepareRegisters(ModbusValueType valueType, byte[] requestData ) {
+		Register[] registers = new Register[valueType.getLength()];
+		for(int i =0 ; i< valueType.getLength() ; i++ ){
+			registers[i] = new SimpleInputRegister(requestData[i*2],requestData[i*2+1]);
+		}
+		return registers;
+	}
 	private ModbusRequest prepareWritingRequest(PrimaryTable primaryTable, ModbusValueType valueType,
 												int referenceAddress) {
 		ModbusRequest modbusRequest = null;
@@ -432,6 +483,8 @@ public class ModbusConnection {
 			case HOLDING_REGISTERS:
 				WriteMultipleRegistersRequest request = new WriteMultipleRegistersRequest();
 				request.setReference(referenceAddress);
+				request.setDataLength(valueType.getLength());
+				modbusRequest = request;
 				break;
 			default:
 

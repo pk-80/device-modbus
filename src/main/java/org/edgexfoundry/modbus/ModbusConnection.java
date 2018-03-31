@@ -49,12 +49,10 @@ import com.ghgande.j2mod.modbus.msg.ReadCoilsRequest;
 import com.ghgande.j2mod.modbus.msg.ReadInputDiscretesRequest;
 import com.ghgande.j2mod.modbus.msg.ReadInputRegistersRequest;
 import com.ghgande.j2mod.modbus.msg.ReadMultipleRegistersRequest;
-import com.ghgande.j2mod.modbus.msg.WriteSingleRegisterRequest;
 import com.ghgande.j2mod.modbus.msg.WriteMultipleCoilsRequest;
 import com.ghgande.j2mod.modbus.msg.WriteMultipleRegistersRequest;
 import com.ghgande.j2mod.modbus.net.SerialConnection;
 import com.ghgande.j2mod.modbus.net.TCPMasterConnection;
-import com.ghgande.j2mod.modbus.procimg.SimpleRegister;
 import com.ghgande.j2mod.modbus.util.ModbusUtil;
 import com.ghgande.j2mod.modbus.util.SerialParameters;
 
@@ -174,7 +172,7 @@ public class ModbusConnection {
 
 			byte[] dataBytes = this.fetchDataBytes(response);
 
-			result = this.prepareRequestDataBytes(propertyValueType, object, dataBytes);
+			result = this.translateResponseDataBytes(propertyValueType, object, dataBytes);
 
 		} catch (ModbusIOException ioe) {
 			retryCount++;
@@ -284,7 +282,7 @@ public class ModbusConnection {
 		return dataBytes;
 	}
 
-	private String prepareRequestDataBytes(ModbusValueType valueType, ModbusObject object, byte[] dataBytes) {
+	private String translateResponseDataBytes(ModbusValueType valueType, ModbusObject object, byte[] dataBytes) {
 		PropertyValue propertyValue = object.getProperties().getValue();
 		ModbusAttribute attributes = object.getAttributes();
 		byte[] newDataBytes = dataBytes;
@@ -368,7 +366,7 @@ public class ModbusConnection {
 			Float newValue = (Integer.parseInt(value) / scale);
 
 			scaledValue = newValue.intValue() + "";
-			byte[] requestData = this.prepareRequestDataBytes(propertyValueType,object,newValue);
+			byte[] requestData = this.translateResponseDataBytes(propertyValueType,object,newValue);
 			registers = this.prepareRegisters(propertyValueType,requestData);
 		}
 
@@ -438,7 +436,7 @@ public class ModbusConnection {
 		return baseAddress + startingAddress;
 	}
 
-	private byte[] prepareRequestDataBytes(ModbusValueType valueType, ModbusObject object, Float value ) {
+	private byte[] translateResponseDataBytes(ModbusValueType valueType, ModbusObject object, Float value ) {
 		PropertyValue propertyValue = object.getProperties().getValue();
 		ModbusAttribute attributes = object.getAttributes();
 		byte[] requestDataBytes;

@@ -304,6 +304,8 @@ public class ModbusConnection {
 			return Float.toString(ModbusUtil.registersToFloat(newDataBytes));
 		case FLOAT64:
 			return Double.toString(ModbusUtil.registersToDouble(dataBytes));
+		case BOOLEAN:
+			return Integer.toString(((Byte)dataBytes[0]).intValue());
 		default:
 			throw new DataValidationException("Mismatch property value type");
 		}
@@ -464,6 +466,7 @@ public class ModbusConnection {
 				throw new DataValidationException("Mismatch property value type");
 		}
 	}
+
 	private Register[] prepareRegisters(ModbusValueType valueType, byte[] requestData ) {
 		Register[] registers = new Register[valueType.getLength()];
 		for(int i =0 ; i< valueType.getLength() ; i++ ){
@@ -471,6 +474,7 @@ public class ModbusConnection {
 		}
 		return registers;
 	}
+
 	private ModbusRequest prepareWritingRequest(PrimaryTable primaryTable, ModbusValueType valueType,
 												int referenceAddress) {
 		ModbusRequest modbusRequest = null;

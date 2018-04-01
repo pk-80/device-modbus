@@ -26,6 +26,7 @@ import javax.xml.bind.DatatypeConverter;
 
 import com.ghgande.j2mod.modbus.procimg.Register;
 import com.ghgande.j2mod.modbus.procimg.SimpleInputRegister;
+import com.ghgande.j2mod.modbus.util.BitVector;
 import org.edgexfoundry.domain.ModbusAttribute;
 import org.edgexfoundry.domain.ModbusDevice;
 import org.edgexfoundry.domain.ModbusObject;
@@ -368,7 +369,7 @@ public class ModbusConnection {
 			Float newValue = (Integer.parseInt(value) / scale);
 
 			scaledValue = newValue.intValue() + "";
-			byte[] requestData = this.translateResponseDataBytes(propertyValueType,object,newValue);
+			byte[] requestData = this.prepareRequestDataBytes(propertyValueType,object,newValue);
 			registers = this.prepareRegisters(propertyValueType,requestData);
 		}
 
@@ -384,7 +385,8 @@ public class ModbusConnection {
 		if(req instanceof WriteMultipleRegistersRequest){
 			((WriteMultipleRegistersRequest) req).setRegisters(registers);
 		}else if(req instanceof WriteMultipleCoilsRequest){
-//			((WriteMultipleCoilsRequest) req).setCoils(registers);
+			boolean coilStatus = registers[0].getValue() >0 ? true : false ;
+			((WriteMultipleCoilsRequest) req).setCoilStatus(0 , coilStatus );
 		}
 
 		try {
@@ -438,7 +440,7 @@ public class ModbusConnection {
 		return baseAddress + startingAddress;
 	}
 
-	private byte[] translateResponseDataBytes(ModbusValueType valueType, ModbusObject object, Float value ) {
+	private byte[] prepareRequestDataBytes(ModbusValueType valueType, ModbusObject object, Float value ) {
 		PropertyValue propertyValue = object.getProperties().getValue();
 		ModbusAttribute attributes = object.getAttributes();
 		byte[] requestDataBytes;
@@ -462,6 +464,8 @@ public class ModbusConnection {
 				return requestDataBytes;
 			case FLOAT64:
 				return ModbusUtil.doubleToRegisters(value.doubleValue());
+			case BOOLEAN:
+				return new byte[]{ 0 , (byte)value.intValue()};
 			default:
 				throw new DataValidationException("Mismatch property value type");
 		}
@@ -470,6 +474,7 @@ public class ModbusConnection {
 	private Register[] prepareRegisters(ModbusValueType valueType, byte[] requestData ) {
 		Register[] registers = new Register[valueType.getLength()];
 		for(int i =0 ; i< valueType.getLength() ; i++ ){
+
 			registers[i] = new SimpleInputRegister(requestData[i*2],requestData[i*2+1]);
 		}
 		return registers;

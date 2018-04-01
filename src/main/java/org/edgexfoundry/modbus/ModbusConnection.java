@@ -332,7 +332,7 @@ public class ModbusConnection {
 		if (attributes.isByteSwap()) {
 			newDataBytes = this.swapByteFor32Bit(newDataBytes);
 		}
-		if (attributes.isWordSwap()){
+		if (!attributes.isWordSwap()){
 			newDataBytes = this.swapWordFor32Bit(newDataBytes);
 		}
 		return newDataBytes;
@@ -390,7 +390,7 @@ public class ModbusConnection {
 		if(req instanceof WriteMultipleRegistersRequest){
 			((WriteMultipleRegistersRequest) req).setRegisters(registers);
 		}else if(req instanceof WriteMultipleCoilsRequest){
-			boolean coilStatus = registers[0].getValue() >0 ? true : false ;
+			boolean coilStatus = registers[0].getValue() > 0 ? true : false ;
 			((WriteMultipleCoilsRequest) req).setCoilStatus(0 , coilStatus );
 		}
 

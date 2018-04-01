@@ -175,6 +175,9 @@ public class ModbusConnection {
 
 			result = this.translateResponseDataBytes(propertyValueType, object, dataBytes);
 
+            float scale = Float.parseFloat(object.getProperties().getValue().getScale());
+            result = String.valueOf( ( Float.parseFloat(result) * scale ) );
+
 		} catch (ModbusIOException ioe) {
 			retryCount++;
 			if (retryCount < 3) {
@@ -366,9 +369,11 @@ public class ModbusConnection {
 		Register[] registers = null ;
 		if (value != null) {
 			float scale = Float.parseFloat(object.getProperties().getValue().getScale());
-			Float newValue = (Integer.parseInt(value) / scale);
+
+            Float newValue = Float.parseFloat(value) / scale ;
 
 			scaledValue = newValue.intValue() + "";
+
 			byte[] requestData = this.prepareRequestDataBytes(propertyValueType,object,newValue);
 			registers = this.prepareRegisters(propertyValueType,requestData);
 		}
@@ -406,6 +411,9 @@ public class ModbusConnection {
 			logger.info("After setting value:" + result);
 			logger.info("After setting value:" + ModbusUtil.registersToInt(response.getMessage()));
 			result = scaledValue;
+
+            float scale = Float.parseFloat(object.getProperties().getValue().getScale());
+            result = String.valueOf( ( Float.parseFloat(result) * scale ) );
 
 		}catch (ModbusIOException ioe) {
 			retryCount++;

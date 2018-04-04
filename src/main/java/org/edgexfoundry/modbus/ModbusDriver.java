@@ -27,7 +27,7 @@ import org.edgexfoundry.domain.ModbusObject;
 import org.edgexfoundry.domain.ScanList;
 import org.edgexfoundry.domain.meta.Addressable;
 import org.edgexfoundry.domain.meta.ResourceOperation;
-import org.edgexfoundry.exception.ServiceException;
+import org.edgexfoundry.exception.controller.ServiceException;
 import org.edgexfoundry.handler.ModbusHandler;
 import org.edgexfoundry.support.logging.client.EdgeXLogger;
 import org.edgexfoundry.support.logging.client.EdgeXLoggerFactory;
@@ -38,51 +38,58 @@ import org.springframework.stereotype.Service;
 public class ModbusDriver {
 
 	private final static EdgeXLogger logger = EdgeXLoggerFactory.getEdgeXLogger(ModbusDriver.class);
-	
+
 	@Autowired
 	ProfileStore profiles;
-	
+
 	@Autowired
 	DeviceStore devices;
-	
+
 	@Autowired
 	ObjectStore objectCache;
-	
+
 	@Autowired
 	ModbusHandler handler;
-	
-	ModbusConnection modbusConInstance = null;
-	
+
+	@Autowired
+	ModbusConnection modbusConInstance;
+
 	public ScanList discover() {
 		ScanList scan = new ScanList();
 		return scan;
 	}
-	
+
 	// operation is get or set
 	// Device to be written to
 	// Modbus Object to be written to
 	// value is string to be written or null
-	public void process(ResourceOperation operation, ModbusDevice device, ModbusObject object, String value, String transactionId, String opId) {
+	public void process(ResourceOperation operation, ModbusDevice device, ModbusObject object, String value,
+			String transactionId, String opId) {
 		String result = "";
-		
-		// TODO 2: [Optional] Modify this processCommand call to pass any additional required metadata from the profile to the driver stack
-        try {
-            result = processCommand(operation.getOperation(), device.getAddressable(), object, value, device);
-            logger.info("Putting result:" + result);
-            objectCache.put(device, operation, result);
-            handler.completeTransaction(transactionId, opId, objectCache.getResponses(device, operation));
-        } catch (Exception e) {
-            logger.error("ModbusDriver process Exception e:" + e.getMessage());
+
+		// TODO 2: [Optional] Modify this processCommand call to pass any additional
+		// required metadata from the profile to the driver stack
+		try {
+			result = processCommand(operation.getOperation(), device.getAddressable(), object, value, device);
+			logger.info("Putting result:" + result);
+			objectCache.put(device, operation, result);
+			handler.completeTransaction(transactionId, opId, objectCache.getResponses(device, operation));
+		} catch (Exception e) {
+			logger.error("ModbusDriver process Exception e:" + e.getMessage());
+			logger.debug(e.getMessage(), e);
 			handler.failTransaction(transactionId, new ServiceException(e));
-            Thread.currentThread().interrupt();
-        }
+			Thread.currentThread().interrupt();
+		}
 
 	}
 
-	// Modify this function as needed to pass necessary metadata from the device and its profile to the driver interface
-	public String processCommand(String operation, Addressable addressable, ModbusObject object, String value, ModbusDevice device) {
-		logger.info("ProcessCommand: " + operation + ", addressable:" + addressable + ", attributes:" + object.getAttributes().toString() + ", value: " + value );
-		String result = ""; 
+	// Modify this function as needed to pass necessary metadata from the device and
+	// its profile to the driver interface
+	public String processCommand(String operation, Addressable addressable, ModbusObject object, String value,
+			ModbusDevice device) {
+		logger.info("ProcessCommand: " + operation + ", addressable:" + addressable + ", attributes:"
+				+ object.getAttributes().toString() + ", value: " + value);
+		String result = "";
 		Object connection = modbusConInstance.getModbusConnection(addressable);
 		if (operation.toLowerCase().equals("get")) {
 			logger.info("Getting value");
@@ -96,24 +103,22 @@ public class ModbusDriver {
 		return result;
 	}
 
-
-
 	public void initialize() {
-		modbusConInstance = new ModbusConnection();
-	}
-	
-	public void disconnectDevice(Addressable address) {
-		// TODO 6: [Optional] Disconnect devices here using driver level operations
 		
 	}
-	
+
+	public void disconnectDevice(Addressable address) {
+		modbusConInstance.closeConnection(address);
+	}
+
 	@SuppressWarnings("unused")
 	private void receive() {
-		// TODO 7: [Optional] Fill with your own implementation for handling asynchronous data from the driver layer to the device service
+		// TODO 7: [Optional] Fill with your own implementation for handling
+		// asynchronous data from the driver layer to the device service
 		ModbusDevice device = null;
 		String result = "";
-		ResourceOperation operation = null;		
-		
+		ResourceOperation operation = null;
+
 		objectCache.put(device, operation, result);
 	}
 

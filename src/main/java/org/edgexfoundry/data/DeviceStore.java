@@ -55,7 +55,7 @@ public class DeviceStore {
 	private DeviceProfileClient profileClient;
 	
 	@Autowired
-	private ModbusHandler Modbus;
+	private ModbusHandler modbus;
 	
 	@Autowired
 	private WatcherStore watchers;
@@ -73,7 +73,7 @@ public class DeviceStore {
 		logger.debug("Removing managed device:  " + device.getName());
 		if (devices.containsKey(device.getName())) {
 			devices.remove(device.getName());			
-			Modbus.disconnectDevice(device);
+			modbus.disconnectDevice(device);
 			//commented out updateOpState because the device has been removed
 			//deviceClient.updateOpState(device.getId(), OperatingState.DISABLED.name());
 			profiles.removeDevice(device);
@@ -106,7 +106,7 @@ public class DeviceStore {
 			return false;
 		}
 		if (metaDevice.getOperatingState().equals(OperatingState.ENABLED))
-			Modbus.initializeDevice(metaDevice);
+			modbus.initializeDevice(metaDevice);
 		return true;
 	}
 
@@ -186,7 +186,7 @@ public class DeviceStore {
 		List<Device> metaDevices = deviceClient.devicesForService(id);
 		devices = new HashMap<>();
 		watchers.initialize(id);
-		Modbus.initialize();
+		modbus.initialize();
 		for (Device device : metaDevices) {
 			deviceClient.updateOpState(device.getId(),OperatingState.DISABLED.name());
 			add(new ModbusDevice(device));

@@ -40,7 +40,7 @@ public class CommandHandler {
 	private final static EdgeXLogger logger = EdgeXLoggerFactory.getEdgeXLogger(CommandHandler.class);
 	
 	@Autowired
-	ModbusHandler Modbus;
+	ModbusHandler modbusHandler;
 	
 	@Autowired
 	DeviceStore devices;
@@ -58,8 +58,8 @@ public class CommandHandler {
 			throw new DeviceLockedException(deviceId);
 		}
 		ModbusDevice device = devices.getModbusDeviceById(deviceId);
-		if (Modbus.commandExists(device, cmd)) {
-			return Modbus.executeCommand(device, cmd, arguments);
+		if (modbusHandler.commandExists(device, cmd)) {
+			return modbusHandler.executeCommand(device, cmd, arguments);
 		} else {
 			logger.error("Command: " + cmd + " does not exist for device with id: " + deviceId);
 			throw new BadCommandRequestException("Command: " + cmd + " does not exist for device with id: " + deviceId);
@@ -77,8 +77,8 @@ public class CommandHandler {
 				continue;
 			}
 			ModbusDevice device = devices.getModbusDeviceById(deviceId);
-			if (Modbus.commandExists(device, cmd))
-				responses.putAll(Modbus.executeCommand(device, cmd, arguments));
+			if (modbusHandler.commandExists(device, cmd))
+				responses.putAll(modbusHandler.executeCommand(device, cmd, arguments));
 		}
 		return responses;
 	}

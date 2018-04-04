@@ -47,6 +47,8 @@ public class ModbusAttribute implements Serializable {
 			
 			this.setPrimaryTable(thisObject.getPrimaryTable());
 			this.setAddress(thisObject.getStartingAddress());
+			this.setByteSwap(thisObject.isByteSwap());
+			this.setWordSwap(thisObject.isWordSwap());
 			
 		} catch (Exception e) {
 			logger.error("Cannot Construct ModbusAttribute: " + e.getMessage());

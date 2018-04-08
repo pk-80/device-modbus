@@ -266,7 +266,9 @@ public class ModbusConnection {
 			req.setHeadless();
 			SerialConnection con = (SerialConnection) connection;
 			if (!con.isOpen()) {
-				con.open();
+				if (!con.open()) {
+					throw new ServiceException(new IllegalStateException("Modbus RTU Connection cannot be opened: " + con.toString()));
+				}
 			}
 			transaction = new ModbusSerialTransaction(con);
 		}

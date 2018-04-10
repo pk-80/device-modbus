@@ -61,6 +61,7 @@ public class CoreDataMessageHandler {
 	
 	public Reading buildReading(String key, String value, String deviceName) {
 		Reading reading = new Reading();
+		reading.setOrigin(System.currentTimeMillis());
 		reading.setName(key);
 		reading.setValue(value);
 		reading.setDevice(deviceName);
@@ -69,6 +70,7 @@ public class CoreDataMessageHandler {
 
 	private Event buildEvent(String deviceName, List<Reading> readings) {
 		Event event = new Event(deviceName);
+		event.setOrigin(System.currentTimeMillis());
 		event.setReadings(readings);
 		return event;
 	}

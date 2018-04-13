@@ -188,6 +188,7 @@ public class ModbusConnection {
 			retryCount++;
 			if (retryCount < 3) {
 				logger.warn("Cannot get the value:" + ioe.getMessage() + ",count:" + retryCount);
+				this.closeConnection(connection);
 				getValue(connection, addressable, object, device, retryCount);
 			} else {
 				logger.debug(ioe.getMessage(), ioe);
@@ -402,6 +403,7 @@ public class ModbusConnection {
 			retryCount++;
 			if (retryCount < 3) {
 				logger.error("Cannot set the value:" + ioe.getMessage() + ",count:" + retryCount);
+				this.closeConnection(connection);
 				setValue(connection, addressable, object, value, device, retryCount);
 			} else {
 				throw new BadCommandRequestException(ioe.getMessage());

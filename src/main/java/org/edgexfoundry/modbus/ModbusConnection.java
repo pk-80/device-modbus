@@ -297,6 +297,8 @@ public class ModbusConnection {
 		PropertyValue propertyValue = object.getProperties().getValue();
 		ModbusAttribute attributes = object.getAttributes();
 		byte[] newDataBytes = dataBytes;
+		logger.debug("translateResponseDataBytes with valueType: " + valueType + ", and date bytes: " + dataBytes);
+
 		switch (valueType) {
 		case INT16:
 			if (propertyValue.getSigned()) {

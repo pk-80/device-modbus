@@ -128,7 +128,7 @@ public class ModbusConnection {
 				params.setEcho(false);
 			}
 			con = new SerialConnection(params);
-			// con.setTimeout(100); 100ms timeout is too short
+			con.setTimeout(10000);
 			// con.open();
 			logger.info("Created Modbus RTU Connection");
 		} catch (Exception e) {

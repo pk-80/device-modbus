@@ -37,6 +37,7 @@ import org.edgexfoundry.exception.controller.DataValidationException;
 import org.edgexfoundry.exception.controller.ServiceException;
 import org.edgexfoundry.support.logging.client.EdgeXLogger;
 import org.edgexfoundry.support.logging.client.EdgeXLoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
 import com.ghgande.j2mod.modbus.ModbusIOException;
@@ -64,6 +65,9 @@ public class ModbusConnection {
 	private ConcurrentHashMap<String, Object> connections;
 	private final static EdgeXLogger logger = EdgeXLoggerFactory.getEdgeXLogger(ModbusConnection.class);
 	
+	@Value("${modbus.rtu.timeout:3000}")
+	private int modbus_rtu_timeout;
+
 	private boolean isDestroying = false;
 
 	public ModbusConnection() {
@@ -128,7 +132,7 @@ public class ModbusConnection {
 				params.setEcho(false);
 			}
 			con = new SerialConnection(params);
-			con.setTimeout(10000);
+			con.setTimeout(modbus_rtu_timeout);
 			// con.open();
 			logger.info("Created Modbus RTU Connection");
 		} catch (Exception e) {

@@ -108,7 +108,7 @@ public class ModbusDriver {
 	}
 
 	public void disconnectDevice(Addressable address) {
-		modbusConInstance.closeConnection(address);
+
 	}
 
 	@SuppressWarnings("unused")

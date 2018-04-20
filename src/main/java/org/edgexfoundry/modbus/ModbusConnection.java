@@ -20,9 +20,6 @@
 package org.edgexfoundry.modbus;
 
 import java.net.InetAddress;
-import java.util.concurrent.ConcurrentHashMap;
-
-import javax.annotation.PreDestroy;
 
 import org.edgexfoundry.domain.ModbusAttribute;
 import org.edgexfoundry.domain.ModbusDevice;
@@ -62,38 +59,25 @@ import com.ghgande.j2mod.modbus.util.SerialParameters;
 @Repository
 public class ModbusConnection {
 
-	private ConcurrentHashMap<String, Object> connections;
 	private final static EdgeXLogger logger = EdgeXLoggerFactory.getEdgeXLogger(ModbusConnection.class);
-	
+
 	@Value("${modbus.rtu.timeout:3000}")
 	private int modbus_rtu_timeout;
 
 	private boolean isDestroying = false;
 
 	public ModbusConnection() {
-		connections = new ConcurrentHashMap<String, Object>();
 	}
 
 	public Object getModbusConnection(Addressable addressable) {
 		Object connection = null;
-		if (connections.containsKey(addressable.getBaseURL())) {
-			connection = connections.get(addressable.getBaseURL());
-		} else {
-			if (addressable.getProtocol() == Protocol.HTTP || addressable.getProtocol() == Protocol.TCP) {
-				logger.info("creating TCP connection");
-				connection = createTCPConnection(addressable);
-			} else /* if(addressable.getProtocol() == Protocol.OTHER) */ {
-				connection = createSerialConnection(addressable);
-			}
-			connections.put(addressable.getBaseURL(), connection);
+		if (addressable.getProtocol() == Protocol.HTTP || addressable.getProtocol() == Protocol.TCP) {
+			logger.info("creating TCP connection");
+			connection = createTCPConnection(addressable);
+		} else /* if(addressable.getProtocol() == Protocol.OTHER) */ {
+			connection = createSerialConnection(addressable);
 		}
 		return connection;
-	}
-	
-	public void closeConnection(Addressable addressable) {
-		Object connection = connections.get(addressable.getBaseURL());
-		logger.info("closing Modbus connection: " + addressable.getBaseURL());
-		this.closeConnection(connection);
 	}
 
 	private Object createSerialConnection(Addressable addressable) {
@@ -134,7 +118,7 @@ public class ModbusConnection {
 			con = new SerialConnection(params);
 			con.setTimeout(modbus_rtu_timeout);
 			// con.open();
-			logger.info("Created Modbus RTU Connection");
+			logger.info("Created Modbus RTU Connection for " + addressable.toString());
 		} catch (Exception e) {
 			logger.debug(e.getMessage(), e);
 			logger.error("Exception in creating Serial connection:" + e.getMessage());
@@ -150,7 +134,7 @@ public class ModbusConnection {
 			con = new TCPMasterConnection(addr);
 			con.setPort(addressable.getPort());
 			// con.connect();
-			logger.info("Created Modbus TCP Connection");
+			logger.info("Created Modbus TCP Connection for " + addressable.toString());
 		} catch (Exception e) {
 			logger.debug(e.getMessage(), e);
 			logger.error("Exception in creating TCP connection:" + e);
@@ -192,7 +176,6 @@ public class ModbusConnection {
 			retryCount++;
 			if (retryCount < 3) {
 				logger.warn("Cannot get the value:" + ioe.getMessage() + ",count:" + retryCount);
-				this.closeConnection(connection);
 				getValue(connection, addressable, object, device, retryCount);
 			} else {
 				logger.debug(ioe.getMessage(), ioe);
@@ -203,10 +186,10 @@ public class ModbusConnection {
 			logger.debug(e.getMessage(), e);
 			logger.error("General Exception e:" + e.getMessage());
 			throw new BadCommandRequestException(e.getMessage());
-//		} finally {
-//			this.closeConnection(connection);
+		} finally {
+			this.closeConnection(connection);
 		}
-		
+
 		return result;
 	}
 
@@ -274,7 +257,8 @@ public class ModbusConnection {
 			SerialConnection con = (SerialConnection) connection;
 			if (!con.isOpen()) {
 				if (!con.open()) {
-					throw new ServiceException(new IllegalStateException("Modbus RTU Connection cannot be opened: " + con.toString()));
+					throw new ServiceException(
+							new IllegalStateException("Modbus RTU Connection cannot be opened: " + con.toString()));
 				}
 			}
 			transaction = new ModbusSerialTransaction(con);
@@ -411,7 +395,6 @@ public class ModbusConnection {
 			retryCount++;
 			if (retryCount < 3) {
 				logger.error("Cannot set the value:" + ioe.getMessage() + ",count:" + retryCount);
-				this.closeConnection(connection);
 				setValue(connection, addressable, object, value, device, retryCount);
 			} else {
 				throw new BadCommandRequestException(ioe.getMessage());
@@ -420,10 +403,10 @@ public class ModbusConnection {
 			logger.debug(e.getMessage(), e);
 			logger.error("Cannot set the value general Exception:" + e.getMessage());
 			throw new BadCommandRequestException(e.getMessage());
-//		} finally {
-//			this.closeConnection(connection);
+		} finally {
+			this.closeConnection(connection);
 		}
-		
+
 		return value;
 	}
 
@@ -470,7 +453,7 @@ public class ModbusConnection {
 			throw new DataValidationException("Mismatch property value type");
 		}
 	}
-	
+
 	private String stripDecimal(String s) {
 		if (s.contains(".")) {
 			s = s.substring(0, s.indexOf("."));
@@ -505,18 +488,6 @@ public class ModbusConnection {
 		logger.debug(String.format("[ Function code : %s ][ starting address : %s ]", modbusRequest.getFunctionCode(),
 				referenceAddress));
 		return modbusRequest;
-	}
-	
-	@PreDestroy
-	public void closeAllConnections() {
-		isDestroying = true;
-		logger.info("starting to close all Modbus Connections");
-		connections.entrySet().stream().parallel().forEach(entry -> {
-			logger.info("closing Modbus connection: " + entry.getKey());
-			Object con = entry.getValue();
-			closeConnection(con);
-		});
-		logger.info("finished closing all Modbus Connections");
 	}
 
 	private void closeConnection(Object con) {

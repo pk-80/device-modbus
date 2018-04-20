@@ -192,6 +192,7 @@ public class ModbusConnection {
 			retryCount++;
 			if (retryCount < 3) {
 				logger.warn("Cannot get the value:" + ioe.getMessage() + ",count:" + retryCount);
+				this.closeConnection(connection);
 				getValue(connection, addressable, object, device, retryCount);
 			} else {
 				logger.debug(ioe.getMessage(), ioe);
@@ -202,8 +203,8 @@ public class ModbusConnection {
 			logger.debug(e.getMessage(), e);
 			logger.error("General Exception e:" + e.getMessage());
 			throw new BadCommandRequestException(e.getMessage());
-		} finally {
-			this.closeConnection(connection);
+//		} finally {
+//			this.closeConnection(connection);
 		}
 		
 		return result;
@@ -410,6 +411,7 @@ public class ModbusConnection {
 			retryCount++;
 			if (retryCount < 3) {
 				logger.error("Cannot set the value:" + ioe.getMessage() + ",count:" + retryCount);
+				this.closeConnection(connection);
 				setValue(connection, addressable, object, value, device, retryCount);
 			} else {
 				throw new BadCommandRequestException(ioe.getMessage());
@@ -418,8 +420,8 @@ public class ModbusConnection {
 			logger.debug(e.getMessage(), e);
 			logger.error("Cannot set the value general Exception:" + e.getMessage());
 			throw new BadCommandRequestException(e.getMessage());
-		} finally {
-			this.closeConnection(connection);
+//		} finally {
+//			this.closeConnection(connection);
 		}
 		
 		return value;

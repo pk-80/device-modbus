@@ -20,6 +20,8 @@
 package org.edgexfoundry.domain;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.edgexfoundry.support.logging.client.EdgeXLogger;
 import org.edgexfoundry.support.logging.client.EdgeXLoggerFactory;
@@ -35,9 +37,11 @@ public class ModbusAttribute implements Serializable {
 	// specific metadata needed by the Modbus Driver
 	
 	private String primaryTable;
-	private String startingAddress;
+	private int startingAddress;
 	private boolean isByteSwap = false;
 	private boolean isWordSwap = false;
+	private int length = 0;
+	private List<String> deviceResourceReferences = new ArrayList<>();
 	
 	public ModbusAttribute(Object attributes) {
 		try {
@@ -46,9 +50,11 @@ public class ModbusAttribute implements Serializable {
 			ModbusAttribute thisObject = gson.fromJson(jsonString, this.getClass());
 			
 			this.setPrimaryTable(thisObject.getPrimaryTable());
-			this.setAddress(thisObject.getStartingAddress());
+			this.setStartingAddress(thisObject.getStartingAddress());
 			this.setByteSwap(thisObject.isByteSwap());
 			this.setWordSwap(thisObject.isWordSwap());
+			this.setLength(thisObject.getLength());
+			this.setDeviceResourceReferences(thisObject.getDeviceResourceReferences());
 			
 		} catch (Exception e) {
 			logger.error("Cannot Construct ModbusAttribute: " + e.getMessage());
@@ -63,11 +69,11 @@ public class ModbusAttribute implements Serializable {
 		this.primaryTable = primaryTable;
 	}
 
-	public String getStartingAddress() {
+	public int getStartingAddress() {
 		return startingAddress;
 	}
 
-	public void setAddress(String startingAddress) {
+	public void setStartingAddress(int startingAddress) {
 		this.startingAddress = startingAddress;
 	}
 
@@ -87,10 +93,27 @@ public class ModbusAttribute implements Serializable {
 		this.isWordSwap = isWordSwap;
 	}
 
+	public int getLength() {
+		return length;
+	}
+
+	public void setLength(int length) {
+		this.length = length;
+	}
+
+	public List<String> getDeviceResourceReferences() {
+		return deviceResourceReferences;
+	}
+
+	public void setDeviceResourceReferences(List<String> deviceResourceReferences) {
+		this.deviceResourceReferences = deviceResourceReferences;
+	}
+
 	@Override
 	public String toString() {
 		return "ModbusAttribute [primaryTable=" + primaryTable + ", startingAddress=" + startingAddress
-				+ ", isByteSwap=" + isByteSwap + ", isWordSwap=" + isWordSwap + "]";
+				+ ", isByteSwap=" + isByteSwap + ", isWordSwap=" + isWordSwap + ", length=" + length
+				+ ", deviceResourceReferences=" + deviceResourceReferences + "]";
 	}
 	
 }

@@ -123,11 +123,11 @@ public class ProfileStore {
 		// put the device's profile objects in the commands map if no resource exists
 		Map<String, ModbusObject> deviceObjects = new HashMap<>();
 		for (DeviceObject object: device.getProfile().getDeviceResources()) {
-			ModbusObject ModbusObject = new ModbusObject(object);
+			ModbusObject modbusObject = new ModbusObject(object);
 			
 			PropertyValue value = object.getProperties().getValue();
 			
-			deviceObjects.put(object.getName(), ModbusObject);
+			deviceObjects.put(object.getName(), modbusObject);
 
 			// if there is no resource defined for an object, create one based on the RW parameters
 			if (!deviceOperations.containsKey(object.getName().toLowerCase())) {				

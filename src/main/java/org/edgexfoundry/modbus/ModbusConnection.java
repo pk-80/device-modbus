@@ -20,43 +20,27 @@
 package org.edgexfoundry.modbus;
 
 import java.net.InetAddress;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-import org.edgexfoundry.domain.ModbusAttribute;
 import org.edgexfoundry.domain.ModbusDevice;
 import org.edgexfoundry.domain.ModbusObject;
-import org.edgexfoundry.domain.ModbusValueType;
-import org.edgexfoundry.domain.PrimaryTable;
 import org.edgexfoundry.domain.meta.Addressable;
-import org.edgexfoundry.domain.meta.PropertyValue;
 import org.edgexfoundry.domain.meta.Protocol;
-import org.edgexfoundry.exception.BadCommandRequestException;
-import org.edgexfoundry.exception.controller.DataValidationException;
-import org.edgexfoundry.exception.controller.ServiceException;
 import org.edgexfoundry.support.logging.client.EdgeXLogger;
 import org.edgexfoundry.support.logging.client.EdgeXLoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Repository;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Service;
 
-import com.ghgande.j2mod.modbus.ModbusIOException;
-import com.ghgande.j2mod.modbus.io.ModbusSerialTransaction;
-import com.ghgande.j2mod.modbus.io.ModbusTCPTransaction;
-import com.ghgande.j2mod.modbus.io.ModbusTransaction;
-import com.ghgande.j2mod.modbus.msg.ModbusRequest;
-import com.ghgande.j2mod.modbus.msg.ModbusResponse;
-import com.ghgande.j2mod.modbus.msg.ReadCoilsRequest;
-import com.ghgande.j2mod.modbus.msg.ReadInputDiscretesRequest;
-import com.ghgande.j2mod.modbus.msg.ReadInputRegistersRequest;
-import com.ghgande.j2mod.modbus.msg.ReadMultipleRegistersRequest;
-import com.ghgande.j2mod.modbus.msg.WriteMultipleCoilsRequest;
-import com.ghgande.j2mod.modbus.msg.WriteMultipleRegistersRequest;
 import com.ghgande.j2mod.modbus.net.SerialConnection;
 import com.ghgande.j2mod.modbus.net.TCPMasterConnection;
-import com.ghgande.j2mod.modbus.procimg.Register;
-import com.ghgande.j2mod.modbus.procimg.SimpleInputRegister;
-import com.ghgande.j2mod.modbus.util.ModbusUtil;
 import com.ghgande.j2mod.modbus.util.SerialParameters;
 
-@Repository
+@Service
+@Scope(BeanDefinition.SCOPE_SINGLETON)
 public class ModbusConnection {
 
 	private final static EdgeXLogger logger = EdgeXLoggerFactory.getEdgeXLogger(ModbusConnection.class);
@@ -64,7 +48,11 @@ public class ModbusConnection {
 	@Value("${modbus.rtu.timeout:3000}")
 	private int modbus_rtu_timeout;
 
-	private boolean isDestroying = false;
+	@Autowired
+	private ModbusReadFunction readFunction;
+
+	@Autowired
+	private ModbusWriteFunction writeFunction;
 
 	public ModbusConnection() {
 	}
@@ -144,357 +132,21 @@ public class ModbusConnection {
 
 	public String getValue(Object connection, Addressable addressable, ModbusObject object, ModbusDevice device,
 			int retryCount) {
-		String result = "";
-
-		int unitId = Integer.valueOf(addressable.getPath());
-
-		PrimaryTable primaryTable = this.getPrimaryTable(object);
-
-		ModbusValueType propertyValueType = this.getModbusValueType(object);
-
-		int referenceAddress = this.getReferenceAddress(object, device);
-
-		// ReadMultipleRegistersRequest req = new
-		// ReadMultipleRegistersRequest(baseAddress + startedAddress, 1);
-		ModbusRequest req = this.prepareReadingRequest(primaryTable, propertyValueType, referenceAddress);
-		req.setUnitID(unitId);
-
-		try {
-			ModbusTransaction transaction = this.createModbusTransaction(connection, req);
-			transaction.execute();
-
-			ModbusRequest request = transaction.getRequest();
-			ModbusResponse response = transaction.getResponse();
-
-			logger.debug("Request (Hex) : " + request.getHexMessage());
-			logger.debug("Response(Hex) : " + response.getHexMessage());
-
-			byte[] dataBytes = this.fetchDataBytes(response);
-
-			result = this.translateResponseDataBytes(propertyValueType, object, dataBytes);
-		} catch (ModbusIOException ioe) {
-			retryCount++;
-			if (retryCount < 3) {
-				logger.warn("Cannot get the value:" + ioe.getMessage() + ",count:" + retryCount);
-				getValue(connection, addressable, object, device, retryCount);
-			} else {
-				logger.debug(ioe.getMessage(), ioe);
-				throw new BadCommandRequestException(ioe.getMessage());
-			}
-
-		} catch (Exception e) {
-			logger.debug(e.getMessage(), e);
-			logger.error("General Exception e:" + e.getMessage());
-			throw new BadCommandRequestException(e.getMessage());
-		} finally {
-			this.closeConnection(connection);
-		}
-
-		return result;
+		return readFunction.readValue(connection, addressable, object, device, retryCount);
 	}
 
-	private ModbusValueType getModbusValueType(ModbusObject object) {
-		ModbusValueType propertyValueType;
-		try {
-			propertyValueType = ModbusValueType.valueOf(object.getProperties().getValue().getType());
-		} catch (Exception e) {
-			logger.error(e.getMessage(), e);
-			throw new DataValidationException(
-					"Modbus Value Type definition error. Please identify FLOAT32, FLOAT64, INT16, INT32, or INT64");
-		}
-		return propertyValueType;
-	}
-
-	private PrimaryTable getPrimaryTable(ModbusObject object) {
-		PrimaryTable primaryTable;
-		try {
-			primaryTable = PrimaryTable.valueOf(object.getAttributes().getPrimaryTable());
-		} catch (Exception e) {
-			logger.error(e.getMessage(), e);
-			throw new DataValidationException(
-					"Modbus Primary Table definition error. Please identify DISCRETES_INPUT, COILS, INPUT_REGISTERS, or HOLDING_REGISTER");
-		}
-		return primaryTable;
-	}
-
-	private ModbusRequest prepareReadingRequest(PrimaryTable primaryTable, ModbusValueType valueType,
-			int referenceAddress) {
-		ModbusRequest modbusRequest = null;
-		switch (primaryTable) {
-		case DISCRETES_INPUT:
-			modbusRequest = new ReadInputDiscretesRequest(referenceAddress, valueType.getLength());
-			break;
-		case COILS:
-			modbusRequest = new ReadCoilsRequest(referenceAddress, valueType.getLength());
-			break;
-		case INPUT_REGISTERS:
-			modbusRequest = new ReadInputRegistersRequest(referenceAddress, valueType.getLength());
-			break;
-		case HOLDING_REGISTERS:
-			modbusRequest = new ReadMultipleRegistersRequest(referenceAddress, valueType.getLength());
-			break;
-		default:
-
-		}
-		logger.debug(String.format("[ Function code : %s ][ starting address : %s ]", modbusRequest.getFunctionCode(),
-				referenceAddress));
-		return modbusRequest;
-	}
-
-	private ModbusTransaction createModbusTransaction(Object connection, ModbusRequest req) throws Exception {
-		if (isDestroying) {
-			throw new ServiceException(new IllegalStateException("Modbus Device Service is shutting down"));
-		}
-		ModbusTransaction transaction = null;
-		if (connection instanceof TCPMasterConnection) {
-			TCPMasterConnection con = (TCPMasterConnection) connection;
-			if (!con.isConnected()) {
-				con.connect();
-			}
-			transaction = new ModbusTCPTransaction(con);
-		} else if (connection instanceof SerialConnection) {
-			req.setHeadless();
-			SerialConnection con = (SerialConnection) connection;
-			if (!con.isOpen()) {
-				if (!con.open()) {
-					throw new ServiceException(
-							new IllegalStateException("Modbus RTU Connection cannot be opened: " + con.toString()));
-				}
-			}
-			transaction = new ModbusSerialTransaction(con);
-		}
-		transaction.setRequest(req);
-		return transaction;
-	}
-
-	private byte[] fetchDataBytes(ModbusResponse response) {
-		byte[] responseData = response.getMessage();
-		byte[] dataBytes = new byte[responseData.length - 1];
-
-		for (int i = 0; i < responseData.length; i++) {
-			if (i == 0) {
-				logger.debug("The number of data bytes : " + responseData[i]);
-			} else {
-				logger.debug("Data byte -> " + responseData[i]);
-				dataBytes[i - 1] = responseData[i];
-			}
-		}
-		return dataBytes;
-	}
-
-	private String translateResponseDataBytes(ModbusValueType valueType, ModbusObject object, byte[] dataBytes) {
-		PropertyValue propertyValue = object.getProperties().getValue();
-		ModbusAttribute attributes = object.getAttributes();
-		byte[] newDataBytes = dataBytes;
-		logger.debug("translateResponseDataBytes with valueType: " + valueType + ", and date bytes: " + dataBytes);
-
-		switch (valueType) {
-		case INT16:
-			if (propertyValue.getSigned()) {
-				return Short.toString(ModbusUtil.registerToShort(dataBytes));
-			} else {
-				return Integer.toString(ModbusUtil.registerToUnsignedShort(dataBytes));
-			}
-		case INT32:
-			newDataBytes = sortLongByteForINT32(dataBytes);
-			newDataBytes = swap32BitDataBytes(attributes, newDataBytes);
-			return Integer.toString(ModbusUtil.registersToInt(newDataBytes));
-		case INT64:
-			return Long.toString(ModbusUtil.registersToLong(dataBytes));
-		case FLOAT32:
-			newDataBytes = swap32BitDataBytes(attributes, dataBytes);
-			return Float.toString(ModbusUtil.registersToFloat(newDataBytes));
-		case FLOAT64:
-			return Double.toString(ModbusUtil.registersToDouble(dataBytes));
-		case BOOLEAN:
-			return Byte.toString(dataBytes[0]);
-		default:
-			throw new DataValidationException("Mismatch property value type");
-		}
-	}
-
-	private byte[] sortLongByteForINT32(byte[] dataBytes) {
-		if (dataBytes.length == 8) {
-			byte[] newDataBytes = new byte[4];
-			newDataBytes[0] = dataBytes[2];
-			newDataBytes[1] = dataBytes[3];
-			newDataBytes[2] = dataBytes[6];
-			newDataBytes[3] = dataBytes[7];
-			return newDataBytes;
-		} else {
-			return dataBytes;
-		}
-	}
-
-	private byte[] swap32BitDataBytes(ModbusAttribute attributes, byte[] newDataBytes) {
-		if (attributes.isByteSwap()) {
-			newDataBytes = this.swapByteFor32Bit(newDataBytes);
-		}
-		if (!attributes.isWordSwap()) {
-			newDataBytes = this.swapWordFor32Bit(newDataBytes);
-		}
-		return newDataBytes;
-	}
-
-	private byte[] swapByteFor32Bit(byte[] dataBytes) {
-		byte[] newDataBytes = new byte[4];
-		if (dataBytes.length >= 4) {
-			newDataBytes[0] = dataBytes[1];
-			newDataBytes[1] = dataBytes[0];
-			newDataBytes[2] = dataBytes[3];
-			newDataBytes[3] = dataBytes[2];
-		}
-		return newDataBytes;
-	}
-
-	private byte[] swapWordFor32Bit(byte[] dataBytes) {
-		byte[] newDataBytes = new byte[4];
-		if (dataBytes.length >= 4) {
-			newDataBytes[0] = dataBytes[2];
-			newDataBytes[1] = dataBytes[3];
-			newDataBytes[2] = dataBytes[0];
-			newDataBytes[3] = dataBytes[1];
-		}
-		return newDataBytes;
+	public Map<String, String> getValues(Object connection, Addressable addressable, ModbusObject object,
+			ModbusDevice device, int retryCount) {
+		return readFunction.readValues(connection, addressable, object, device, retryCount);
 	}
 
 	public String setValue(Object connection, Addressable addressable, ModbusObject object, String value,
 			ModbusDevice device, int retryCount) {
-		PrimaryTable primaryTable = this.getPrimaryTable(object);
-		ModbusValueType propertyValueType = this.getModbusValueType(object);
-		Register[] registers = null;
-		if (value != null) {
-			byte[] requestData = this.prepareWritingDataBytes(propertyValueType, object, value);
-			registers = this.prepareRegisters(propertyValueType, requestData);
-		} else {
-			throw new DataValidationException("Setting value- property:" + object.getName() + ", but value is null");
-		}
-
-		logger.info("Setting value- property:" + object.getName() + ", Value:" + value);
-
-		int referenceAddress = this.getReferenceAddress(object, device);
-
-		ModbusRequest req = this.prepareWritingRequest(primaryTable, propertyValueType, referenceAddress);
-
-		if (req instanceof WriteMultipleRegistersRequest) {
-			((WriteMultipleRegistersRequest) req).setRegisters(registers);
-		} else if (req instanceof WriteMultipleCoilsRequest) {
-			boolean coilStatus = registers[0].getValue() > 0 ? true : false;
-			((WriteMultipleCoilsRequest) req).setCoilStatus(0, coilStatus);
-		}
-
-		try {
-			ModbusTransaction transaction = this.createModbusTransaction(connection, req);
-			transaction.execute();
-
-			ModbusRequest request = transaction.getRequest();
-			ModbusResponse response = transaction.getResponse();
-			logger.debug("Request (Hex) : " + request.getHexMessage());
-			logger.debug("Response(Hex) : " + response.getHexMessage());
-		} catch (ModbusIOException ioe) {
-			retryCount++;
-			if (retryCount < 3) {
-				logger.error("Cannot set the value:" + ioe.getMessage() + ",count:" + retryCount);
-				setValue(connection, addressable, object, value, device, retryCount);
-			} else {
-				throw new BadCommandRequestException(ioe.getMessage());
-			}
-		} catch (Exception e) {
-			logger.debug(e.getMessage(), e);
-			logger.error("Cannot set the value general Exception:" + e.getMessage());
-			throw new BadCommandRequestException(e.getMessage());
-		} finally {
-			this.closeConnection(connection);
-		}
-
-		return value;
+		return writeFunction.writeValue(connection, addressable, object, value, device, retryCount);
 	}
 
-	private int getReferenceAddress(ModbusObject object, ModbusDevice device) {
-		int startingAddress = Integer.parseInt(object.getAttributes().getStartingAddress()) - 1;
-		int baseAddress = 0;
-		if (device.getLocation() != null && device.getLocation().getBaseAddress() != null) {
-			baseAddress = device.getLocation().getBaseAddress();
-		}
-
-		return baseAddress + startingAddress;
-	}
-
-	private byte[] prepareWritingDataBytes(ModbusValueType valueType, ModbusObject object, String value) {
-		PropertyValue propertyValue = object.getProperties().getValue();
-		ModbusAttribute attributes = object.getAttributes();
-		byte[] requestDataBytes;
-		switch (valueType) {
-		case INT16:
-			value = stripDecimal(value);
-			if (propertyValue.getSigned()) {
-				return ModbusUtil.shortToRegister(Short.parseShort(value));
-			} else {
-				return ModbusUtil.unsignedShortToRegister(Short.parseShort(value));
-			}
-		case INT32:
-			value = stripDecimal(value);
-			requestDataBytes = ModbusUtil.intToRegisters(Integer.parseInt(value));
-			requestDataBytes = sortLongByteForINT32(requestDataBytes);
-			requestDataBytes = swap32BitDataBytes(attributes, requestDataBytes);
-			return requestDataBytes;
-		case INT64:
-			value = stripDecimal(value);
-			return ModbusUtil.longToRegisters(Long.parseLong(value));
-		case FLOAT32:
-			requestDataBytes = ModbusUtil.floatToRegisters(Float.parseFloat(value));
-			requestDataBytes = swap32BitDataBytes(attributes, requestDataBytes);
-			return requestDataBytes;
-		case FLOAT64:
-			return ModbusUtil.doubleToRegisters(Double.parseDouble(value));
-		case BOOLEAN:
-			return new byte[] { 0, Byte.parseByte(value) };
-		default:
-			throw new DataValidationException("Mismatch property value type");
-		}
-	}
-
-	private String stripDecimal(String s) {
-		if (s.contains(".")) {
-			s = s.substring(0, s.indexOf("."));
-		}
-		return s;
-	}
-
-	private Register[] prepareRegisters(ModbusValueType valueType, byte[] requestData) {
-		Register[] registers = new Register[valueType.getLength()];
-		for (int i = 0; i < valueType.getLength(); i++) {
-			registers[i] = new SimpleInputRegister(requestData[i * 2], requestData[i * 2 + 1]);
-		}
-		return registers;
-	}
-
-	private ModbusRequest prepareWritingRequest(PrimaryTable primaryTable, ModbusValueType valueType,
-			int referenceAddress) {
-		ModbusRequest modbusRequest = null;
-		switch (primaryTable) {
-		case COILS:
-			modbusRequest = new WriteMultipleCoilsRequest(referenceAddress, valueType.getLength());
-			break;
-		case HOLDING_REGISTERS:
-			WriteMultipleRegistersRequest request = new WriteMultipleRegistersRequest();
-			request.setReference(referenceAddress);
-			request.setDataLength(valueType.getLength());
-			modbusRequest = request;
-			break;
-		default:
-
-		}
-		logger.debug(String.format("[ Function code : %s ][ starting address : %s ]", modbusRequest.getFunctionCode(),
-				referenceAddress));
-		return modbusRequest;
-	}
-
-	private void closeConnection(Object con) {
-		if (con instanceof TCPMasterConnection) {
-			((TCPMasterConnection) con).close();
-		} else if (con instanceof SerialConnection) {
-			((SerialConnection) con).close();
-		}
+	public Map<String, String> setValues(Object connection, Addressable addressable, ModbusObject object,
+			Map<String, String> value, ModbusDevice device, int retryCount) {
+		return new LinkedHashMap<>();
 	}
 }

@@ -21,6 +21,7 @@ package org.edgexfoundry.data;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -61,7 +62,7 @@ public class ObjectStore {
 
 	private Map<String, Map<String, List<String>>> objectCache = new HashMap<>();
 
-	private Map<String, Map<String, List<Reading>>> responseCache = new HashMap<>();
+	private Map<String, Map<String, List<Reading>>> responseCache = new LinkedHashMap<>();
 
 	public Boolean getTransformData() {
 		return transformData;
@@ -76,7 +77,7 @@ public class ObjectStore {
 			return;
 
 		List<ModbusObject> objectsList = createObjectsList(operation, device);
-		Map<String, String> values = new HashMap<>();
+		Map<String, String> values = new LinkedHashMap<>();
 		objectsList.stream().map(ModbusObject::getName).forEach(n -> values.put(n, value));
 
 		executePutReadings(device, operation, values, objectsList);
@@ -86,7 +87,7 @@ public class ObjectStore {
 		if (values == null || values.isEmpty())
 			return;
 
-		List<ModbusObject> objectsList = createObjectsList(operation, device);
+		List<ModbusObject> objectsList = createObjectsList(values, device);
 
 		executePutReadings(device, operation, values, objectsList);
 	}
@@ -107,7 +108,7 @@ public class ObjectStore {
 
 			synchronized (objectCache) {
 				if (objectCache.get(deviceId) == null)
-					objectCache.put(deviceId, new HashMap<String, List<String>>());
+					objectCache.put(deviceId, new LinkedHashMap<String, List<String>>());
 				if (objectCache.get(deviceId).get(objectName) == null)
 					objectCache.get(deviceId).put(objectName, new ArrayList<String>());
 				objectCache.get(deviceId).get(objectName).add(0, result);
@@ -120,7 +121,7 @@ public class ObjectStore {
 
 		synchronized (responseCache) {
 			if (responseCache.get(deviceId) == null)
-				responseCache.put(deviceId, new HashMap<String, List<Reading>>());
+				responseCache.put(deviceId, new LinkedHashMap<String, List<Reading>>());
 			responseCache.get(deviceId).put(operationId, readings);
 		}
 	}
@@ -150,6 +151,15 @@ public class ObjectStore {
 						objectsList.add(objects.get(secondary));
 		}
 
+		return objectsList;
+	}
+	
+	private List<ModbusObject> createObjectsList(Map<String, String> values, Device device) {
+		Map<String, ModbusObject> objects = profiles.getObjects().get(device.getName());
+		List<ModbusObject> objectsList = new ArrayList<ModbusObject>();
+		if (values != null && !values.isEmpty() && objects != null) {
+			objectsList = values.keySet().stream().map(objects::get).collect(Collectors.toList());
+		}
 		return objectsList;
 	}
 

@@ -21,6 +21,7 @@ package org.edgexfoundry.data;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -46,88 +47,119 @@ public class ObjectStore {
 
 	@Value("${data.transform:true}")
 	private Boolean transformData;
-	
+
 	@Autowired
 	private ProfileStore profiles;
-	
+
 	@Autowired
 	private ObjectTransform objectTransform;
-	
+
 	@Autowired
 	private CoreDataMessageHandler processor;
-	
+
 	@Value("${data.cache.size:1}")
 	private int CACHE_SIZE;
-	
-	private Map<String,Map<String,List<String>>> objectCache = new HashMap<>();
-	
-	private Map<String,Map<String,List<Reading>>> responseCache = new HashMap<>();
-	
+
+	private Map<String, Map<String, List<String>>> objectCache = new HashMap<>();
+
+	private Map<String, Map<String, List<Reading>>> responseCache = new LinkedHashMap<>();
+
 	public Boolean getTransformData() {
 		return transformData;
 	}
-	
+
 	public void setTransformData(Boolean transform) {
 		transformData = transform;
 	}
 
-	public void put(Device device, ResourceOperation operation, String value) {
+	public void putReadings(Device device, ResourceOperation operation, String value) {
 		if (value == null || value.equals("") || value.equals("{}"))
 			return;
-		
+
 		List<ModbusObject> objectsList = createObjectsList(operation, device);
-		
+		Map<String, String> values = new LinkedHashMap<>();
+		objectsList.stream().map(ModbusObject::getName).forEach(n -> values.put(n, value));
+
+		executePutReadings(device, operation, values, objectsList);
+	}
+
+	public void putReadings(Device device, ResourceOperation operation, Map<String, String> values) {
+		if (values == null || values.isEmpty())
+			return;
+
+		List<ModbusObject> objectsList = createObjectsList(values, device);
+
+		executePutReadings(device, operation, values, objectsList);
+	}
+
+	private void executePutReadings(Device device, ResourceOperation operation, Map<String, String> values,
+			List<ModbusObject> objectsList) {
 		String deviceId = device.getId();
 		List<Reading> readings = new ArrayList<>();
-		
-		for (ModbusObject obj: objectsList) {
+
+		for (ModbusObject obj : objectsList) {
 			String objectName = obj.getName();
-			logger.info("Before transformation result:" + value);
-			String result = transformResult(value, obj, device, operation);
+			logger.info("Before transformation result:" + values);
+			String result = transformResult(values.get(objectName), obj, device, operation);
 			logger.info("After transformation result:" + result);
 
 			Reading reading = processor.buildReading(objectName, result, device.getName());
 			readings.add(reading);
-			
-			synchronized(objectCache) {
+
+			synchronized (objectCache) {
 				if (objectCache.get(deviceId) == null)
-					objectCache.put(deviceId, new HashMap<String,List<String>>());
+					objectCache.put(deviceId, new LinkedHashMap<String, List<String>>());
 				if (objectCache.get(deviceId).get(objectName) == null)
 					objectCache.get(deviceId).put(objectName, new ArrayList<String>());
 				objectCache.get(deviceId).get(objectName).add(0, result);
 				if (objectCache.get(deviceId).get(objectName).size() == CACHE_SIZE)
-					objectCache.get(deviceId).get(objectName).remove(CACHE_SIZE-1);
+					objectCache.get(deviceId).get(objectName).remove(CACHE_SIZE - 1);
 			}
 		}
-		
+
 		String operationId = objectsList.stream().map(o -> o.getName()).collect(Collectors.toList()).toString();
-		
-		synchronized(responseCache) {
+
+		synchronized (responseCache) {
 			if (responseCache.get(deviceId) == null)
-				responseCache.put(deviceId, new HashMap<String,List<Reading>>());
-			responseCache.get(deviceId).put(operationId,readings);
+				responseCache.put(deviceId, new LinkedHashMap<String, List<Reading>>());
+			responseCache.get(deviceId).put(operationId, readings);
 		}
 	}
-	
+
 	private List<ModbusObject> createObjectsList(ResourceOperation operation, Device device) {
 		Map<String, ModbusObject> objects = profiles.getObjects().get(device.getName());
 		List<ModbusObject> objectsList = new ArrayList<ModbusObject>();
 		if (operation != null && objects != null) {
 			ModbusObject object = objects.get(operation.getObject());
-			
-			if (profiles.descriptorExists(operation.getParameter())) {
-				object.setName(operation.getParameter());
-				objectsList.add(object);
-			} else if (profiles.descriptorExists(object.getName())) {
-				objectsList.add(object);
+
+			List<String> deviceResourceReferences = object.getAttributes().getDeviceResourceReferences();
+			if (deviceResourceReferences == null || deviceResourceReferences.isEmpty()) {
+				if (profiles.descriptorExists(operation.getParameter())) {
+					object.setName(operation.getParameter());
+					objectsList.add(object);
+				} else if (profiles.descriptorExists(object.getName())) {
+					objectsList.add(object);
+				}
+			} else {
+				deviceResourceReferences.stream().filter(profiles::descriptorExists).map(objects::get)
+						.forEach(objectsList::add);
 			}
-			
-			if(operation.getSecondary() != null)
-				for (String secondary: operation.getSecondary())
+
+			if (operation.getSecondary() != null)
+				for (String secondary : operation.getSecondary())
 					if (profiles.descriptorExists(secondary))
 						objectsList.add(objects.get(secondary));
 		}
-		
+
+		return objectsList;
+	}
+	
+	private List<ModbusObject> createObjectsList(Map<String, String> values, Device device) {
+		Map<String, ModbusObject> objects = profiles.getObjects().get(device.getName());
+		List<ModbusObject> objectsList = new ArrayList<ModbusObject>();
+		if (values != null && !values.isEmpty() && objects != null) {
+			objectsList = values.keySet().stream().map(objects::get).collect(Collectors.toList());
+		}
 		return objectsList;
 	}
 
@@ -140,8 +172,7 @@ public class ObjectStore {
 	}
 
 	private List<String> get(String deviceId, String object, int i) {
-		if (objectCache.get(deviceId) == null 
-				|| objectCache.get(deviceId).get(object) == null 
+		if (objectCache.get(deviceId) == null || objectCache.get(deviceId).get(object) == null
 				|| objectCache.get(deviceId).get(object).size() < i)
 			return null;
 		return objectCache.get(deviceId).get(object).subList(0, i);
@@ -150,20 +181,21 @@ public class ObjectStore {
 	public JsonObject get(Device device, ResourceOperation operation) {
 		JsonObject jsonObject = new JsonObject();
 		List<ModbusObject> objectsList = createObjectsList(operation, device);
-		for (ModbusObject obj: objectsList) {
+		for (ModbusObject obj : objectsList) {
 			String objectName = obj.getName();
-			jsonObject.addProperty(objectName, get(device.getId(),objectName));
+			jsonObject.addProperty(objectName, get(device.getId(), objectName));
 		}
 		return jsonObject;
 	}
-	
+
 	public List<Reading> getResponses(Device device, ResourceOperation operation) {
 		String deviceId = device.getId();
 		List<ModbusObject> objectsList = createObjectsList(operation, device);
 		if (objectsList == null)
 			throw new NotFoundException("device", deviceId);
 		String operationId = objectsList.stream().map(o -> o.getName()).collect(Collectors.toList()).toString();
-		if (responseCache.get(deviceId) == null || responseCache.get(deviceId).get(operationId) == null) return new ArrayList<Reading>();
+		if (responseCache.get(deviceId) == null || responseCache.get(deviceId).get(operationId) == null)
+			return new ArrayList<Reading>();
 		return responseCache.get(deviceId).get(operationId);
 	}
 

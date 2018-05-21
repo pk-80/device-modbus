@@ -19,6 +19,9 @@
  *******************************************************************************/
 package org.edgexfoundry.modbus;
 
+import java.util.List;
+import java.util.Map;
+
 import org.edgexfoundry.data.DeviceStore;
 import org.edgexfoundry.data.ObjectStore;
 import org.edgexfoundry.data.ProfileStore;
@@ -65,14 +68,24 @@ public class ModbusDriver {
 	// value is string to be written or null
 	public void process(ResourceOperation operation, ModbusDevice device, ModbusObject object, String value,
 			String transactionId, String opId) {
-		String result = "";
 
-		// TODO 2: [Optional] Modify this processCommand call to pass any additional
+		// TODO 2: [Optional] Modify this processCommand call to pass any
+		// additional
 		// required metadata from the profile to the driver stack
 		try {
-			result = processCommand(operation.getOperation(), device.getAddressable(), object, value, device);
-			logger.info("Putting result:" + result);
-			objectCache.put(device, operation, result);
+			List<String> deviceResourceReferences = object.getAttributes().getDeviceResourceReferences();
+			if (deviceResourceReferences == null || deviceResourceReferences.isEmpty()) {
+				String result = processCommand(operation.getOperation(), device.getAddressable(), object, value,
+						device);
+				logger.info("Putting result:" + result);
+				objectCache.putReadings(device, operation, result);
+			} else {
+				Map<String, String> result = processCommandWithMultipleValues(operation.getOperation(),
+						device.getAddressable(), object, null, device);
+				logger.info("Putting result:" + result);
+				objectCache.putReadings(device, operation, result);
+			}
+			
 			handler.completeTransaction(transactionId, opId, objectCache.getResponses(device, operation));
 		} catch (Exception e) {
 			logger.error("ModbusDriver process Exception e:" + e.getMessage());
@@ -83,7 +96,8 @@ public class ModbusDriver {
 
 	}
 
-	// Modify this function as needed to pass necessary metadata from the device and
+	// Modify this function as needed to pass necessary metadata from the device
+	// and
 	// its profile to the driver interface
 	public String processCommand(String operation, Addressable addressable, ModbusObject object, String value,
 			ModbusDevice device) {
@@ -103,8 +117,26 @@ public class ModbusDriver {
 		return result;
 	}
 
+	public Map<String, String> processCommandWithMultipleValues(String operation, Addressable addressable,
+			ModbusObject object, Map<String, String> values, ModbusDevice device) {
+		logger.info("ProcessCommand: " + operation + ", addressable:" + addressable + ", attributes:"
+				+ object.getAttributes().toString());
+		Map<String, String> result;
+		Object connection = modbusConInstance.getModbusConnection(addressable);
+		if (operation.toLowerCase().equals("get")) {
+			logger.info("Getting value");
+			result = modbusConInstance.getValues(connection, addressable, object, device, 0);
+			logger.info("Getting value result finally:" + result);
+		} else {
+			logger.info("Setting value");
+			result = modbusConInstance.setValues(connection, addressable, object, values, device, 0);
+		}
+		logger.info("Returning result:" + result);
+		return result;
+	}
+
 	public void initialize() {
-		
+
 	}
 
 	public void disconnectDevice(Addressable address) {
@@ -119,7 +151,7 @@ public class ModbusDriver {
 		String result = "";
 		ResourceOperation operation = null;
 
-		objectCache.put(device, operation, result);
+		objectCache.putReadings(device, operation, result);
 	}
 
 }

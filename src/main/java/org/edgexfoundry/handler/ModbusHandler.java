@@ -22,6 +22,7 @@ package org.edgexfoundry.handler;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -147,7 +148,7 @@ public class ModbusHandler {
 	}
 
 	public Map<String, String> sendTransaction(String deviceName, List<Reading> readings) {
-		Map<String, String> valueDescriptorMap = new HashMap<String, String>();
+		Map<String, String> valueDescriptorMap = new LinkedHashMap<String, String>();
 		List<ResponseObject> resps = processor.sendCoreData(deviceName, readings,
 				profiles.getObjects().get(deviceName));
 		for (ResponseObject obj : resps)
@@ -189,7 +190,7 @@ public class ModbusHandler {
 
 			String val = null;
 
-			if (method.equals("set"))
+			if (method.equals("set") && object.getProperties() != null)
 				val = parseArguments(arguments, operation, device, object, objects);
 
 			// command operation for client processing

@@ -19,7 +19,7 @@
  *******************************************************************************/
 package org.edgexfoundry.handler;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -67,7 +67,7 @@ public class CommandHandler {
 	}
 
 	public Map<String,String> getResponses(String cmd, String arguments) {
-		Map<String,String> responses = new HashMap<String,String>();
+		Map<String,String> responses = new LinkedHashMap<String,String>();
 		if (init.isServiceLocked()) {
 			logger.error("GET request cmd: " + cmd + " with device service locked ");
 			throw new ServiceLockedException();

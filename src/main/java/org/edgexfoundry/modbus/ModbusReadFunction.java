@@ -129,15 +129,15 @@ class ModbusReadFunction extends ModbusFunction {
 		Map<String, ModbusObject> modbusObjects = profileStore.getObjects().get(device.getName());
 		for (String modbusObjectName : mAttr.getDeviceResourceReferences()) {
 			ModbusObject modbusObject = modbusObjects.get(modbusObjectName);
-			int relativeStartingAddress = modbusObject.getAttributes().getStartingAddress()
-					- mAttr.getStartingAddress();
+			int relativeStartingAddress = 2 * (modbusObject.getAttributes().getStartingAddress()
+					- mAttr.getStartingAddress());
 			ModbusValueType valueType = super.getModbusValueType(modbusObject);
 			if (relativeStartingAddress + valueType.getLength() > dataBytes.length) {
 				logger.error(String.format("%s is not under the scope of %s", modbusObjectName, object.getName()));
 				continue;
 			}
 
-			logger.debug(String.format("Reading %s inside %s, relative starting addres is %d, data type is %s",
+			logger.debug(String.format("Reading %s inside %s, relative starting addreSs is %d, data type is %s",
 					modbusObjectName, object.getName(), relativeStartingAddress, valueType.toString()));
 			byte[] thisObjectDataBytes = this.extractDataBytes(dataBytes, relativeStartingAddress, valueType);
 			String readingValue = this.translateResponseDataBytes(valueType, modbusObject, thisObjectDataBytes);
@@ -176,9 +176,9 @@ class ModbusReadFunction extends ModbusFunction {
 
 		for (int i = 0; i < responseData.length; i++) {
 			if (i == 0) {
-				logger.debug("The number of data bytes : " + responseData[i]);
+				logger.debug("The number of data bytes : " + ModbusUtil.unsignedByteToInt(responseData[i]));
 			} else {
-				logger.debug("Data byte -> " + responseData[i]);
+				logger.debug("Data byte -> " + ModbusUtil.unsignedByteToInt(responseData[i]));
 				dataBytes[i - 1] = responseData[i];
 			}
 		}
@@ -189,7 +189,8 @@ class ModbusReadFunction extends ModbusFunction {
 		PropertyValue propertyValue = object.getProperties().getValue();
 		ModbusAttribute attributes = object.getAttributes();
 		byte[] newDataBytes = dataBytes;
-		logger.debug("translateResponseDataBytes with valueType: " + valueType + ", and date bytes: " + dataBytes);
+		logger.debug(String.format("translateResponseDataBytes with valueType: %s, and date bytes: %s",
+				valueType.toString(), ModbusUtil.toHex(dataBytes)));
 
 		switch (valueType) {
 		case INT16:
@@ -212,14 +213,16 @@ class ModbusReadFunction extends ModbusFunction {
 		case BOOLEAN:
 			return Byte.toString(dataBytes[0]);
 		default:
-			throw new DataValidationException("Mismatch property value type");
+			throw new DataValidationException("Mismatched property value type");
 		}
 	}
 
 	private byte[] extractDataBytes(byte[] blockDataBytes, int startingIndex, ModbusValueType valueType) {
-		byte[] result = new byte[valueType.getLength()];
+		byte[] result = new byte[valueType.getLength() * 2];
 		for (int i = 0; i < result.length; i++) {
-			result[0] = blockDataBytes[startingIndex + i];
+			logger.debug(String.format("Extracting %d address to new data byte index %d, the value is %x",
+					startingIndex + i, i, blockDataBytes[startingIndex + i]));
+			result[i] = blockDataBytes[startingIndex + i];
 		}
 		return result;
 	}

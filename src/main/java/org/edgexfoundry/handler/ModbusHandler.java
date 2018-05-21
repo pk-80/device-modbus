@@ -189,7 +189,7 @@ public class ModbusHandler {
 
 			String val = null;
 
-			if (method.equals("set"))
+			if (method.equals("set") && object.getProperties() != null)
 				val = parseArguments(arguments, operation, device, object, objects);
 
 			// command operation for client processing

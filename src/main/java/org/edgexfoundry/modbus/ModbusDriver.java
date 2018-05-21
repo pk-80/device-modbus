@@ -120,7 +120,7 @@ public class ModbusDriver {
 	public Map<String, String> processCommandWithMultipleValues(String operation, Addressable addressable,
 			ModbusObject object, Map<String, String> values, ModbusDevice device) {
 		logger.info("ProcessCommand: " + operation + ", addressable:" + addressable + ", attributes:"
-				+ object.getAttributes().toString() + ", value: " + values.toString());
+				+ object.getAttributes().toString());
 		Map<String, String> result;
 		Object connection = modbusConInstance.getModbusConnection(addressable);
 		if (operation.toLowerCase().equals("get")) {

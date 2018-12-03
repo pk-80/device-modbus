@@ -165,8 +165,8 @@ class ModbusReadFunction extends ModbusFunction {
 		default:
 
 		}
-		logger.debug(String.format("[ Function code : %s ][ starting address : %s ]", modbusRequest.getFunctionCode(),
-				startingAddress));
+		logger.debug(String.format("[ Function code : %s ][ starting address : %s ][ length : %s]",
+				modbusRequest.getFunctionCode(), startingAddress, length));
 		return modbusRequest;
 	}
 

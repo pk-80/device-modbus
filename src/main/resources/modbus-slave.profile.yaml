@@ -1,0 +1,197 @@
+# Copyright 2017 Dell Inc. All rights reserved.
+name: "modbus slave"
+manufacturer: "digital plant"
+model: "modbus slave"
+description: ""
+labels: 
+  - "modbus"
+
+deviceResources: 
+  -
+    name: Signal1
+    description: "FLOAT32 signal, HOLDING_REGISTERS(1)"
+    attributes:
+      { "primaryTable": "HOLDING_REGISTERS", "startingAddress": "1" }
+    properties: 
+      value:
+        { type: "FLOAT32", readWrite: "R", size: "1" }
+      units:
+        { type: "String", readWrite: "R", defaultValue: "none" }
+  -
+    name: Signal2
+    description: "FLOAT32 signal, HOLDING_REGISTERS(3)"
+    attributes:
+      { "primaryTable": "HOLDING_REGISTERS", "startingAddress": "3" }
+    properties: 
+      value:
+        { type: "FLOAT32", readWrite: "R", size: "1" }
+      units:
+        { type: "String", readWrite: "R", defaultValue: "none" }
+  -
+    name: Signal3
+    description: "INT16 signal, HOLDING_REGISTERS(1)"
+    attributes:
+      { "primaryTable": "HOLDING_REGISTERS", "startingAddress": "1" }
+    properties: 
+      value:
+        { type: "INT16", readWrite: "R", size: "1" }
+      units:
+        { type: "String", readWrite: "R", defaultValue: "none" }
+  -
+    name: Signal4
+    description: "INT16 signal, HOLDING_REGISTERS(2)"
+    attributes:
+      { "primaryTable": "HOLDING_REGISTERS", "startingAddress": "2" }
+    properties: 
+      value:
+        { type: "INT16", readWrite: "R", size: "1" }
+      units:
+        { type: "String", readWrite: "R", defaultValue: "none" }
+  -
+    name: Signal5
+    description: "INT32 signal, HOLDING_REGISTERS(1)"
+    attributes:
+      { "primaryTable": "HOLDING_REGISTERS", "startingAddress": "1" }
+    properties: 
+      value:
+        { type: "INT32", readWrite: "R", size: "1" }
+      units:
+        { type: "String", readWrite: "R", defaultValue: "none" }
+  -
+    name: Signal6
+    description: "INT32 signal, HOLDING_REGISTERS(2)"
+    attributes:
+      { "primaryTable": "HOLDING_REGISTERS", "startingAddress": "3" }
+    properties: 
+      value:
+        { type: "INT32", readWrite: "R", size: "1" }
+      units:
+        { type: "String", readWrite: "R", defaultValue: "none" }
+
+resources:
+  -
+    name: Signal1
+    get:
+      - { index: "1", operation: "get", object: "Signal1", parameter: "Signal1", property: "value" }
+  -
+    name: Signal2
+    get:
+      - { index: "2", operation: "get", object: "Signal2", parameter: "Signal2", property: "value" }
+  -
+    name: Signal3
+    get:
+      - { index: "3", operation: "get", object: "Signal3", parameter: "Signal3", property: "value" }
+  -
+    name: Signal4
+    get:
+      - { index: "4", operation: "get", object: "Signal4", parameter: "Signal4", property: "value" }
+  -
+    name: Signal5
+    get:
+      - { index: "5", operation: "get", object: "Signal5", parameter: "Signal5", property: "value" }
+  -
+    name: Signal6
+    get:
+      - { index: "6", operation: "get", object: "Signal6", parameter: "Signal6", property: "value" }
+  -
+    name: Dev1Signals
+    get:
+      - { index: "1", operation: "get", object: "Signal1", parameter: "Signal1", property: "value" }
+      - { index: "2", operation: "get", object: "Signal2", parameter: "Signal2", property: "value" }
+  -
+    name: Data
+    get:
+      - { index: "1", operation: "get", resource: "Dev1Signals" }
+
+commands:
+  -
+    name: Signal1
+    get: 
+      path: "/api/v1/device/{deviceId}/Signal1"
+      responses:
+        -
+          code: "200"
+          description: "Get signal1 from device."
+          expectedValues: ["Signal1"]
+        -
+          code: "503"
+          description: "service unavailable"
+          expectedValues: []
+  -
+    name: Signal2
+    get: 
+      path: "/api/v1/device/{deviceId}/Signal2"
+      responses:
+        -
+          code: "200"
+          description: "Get signal2 from device."
+          expectedValues: ["Signal2"]
+        -
+          code: "503"
+          description: "service unavailable"
+          expectedValues: []
+  -
+    name: Signal3
+    get: 
+      path: "/api/v1/device/{deviceId}/Signal3"
+      responses:
+        -
+          code: "200"
+          description: "Get signal3 from device."
+          expectedValues: ["Signal3"]
+        -
+          code: "503"
+          description: "service unavailable"
+          expectedValues: []
+  -
+    name: Signal4
+    get: 
+      path: "/api/v1/device/{deviceId}/Signal4"
+      responses:
+        -
+          code: "200"
+          description: "Get signal4 from device."
+          expectedValues: ["Signal4"]
+        -
+          code: "503"
+          description: "service unavailable"
+          expectedValues: []
+  -
+    name: Signal5
+    get: 
+      path: "/api/v1/device/{deviceId}/Signal5"
+      responses:
+        -
+          code: "200"
+          description: "Get signal5 from device."
+          expectedValues: ["Signal1"]
+        -
+          code: "503"
+          description: "service unavailable"
+          expectedValues: []
+  -
+    name: Signal6
+    get: 
+      path: "/api/v1/device/{deviceId}/Signal6"
+      responses:
+        -
+          code: "200"
+          description: "Get signal6 from device."
+          expectedValues: ["Signal6"]
+        -
+          code: "503"
+          description: "service unavailable"
+          expectedValues: []
+  -
+    name: Data
+    get: 
+      path: "/api/v1/device/{deviceId}/Data"
+      responses:
+        -
+          code: "200"
+          description: "Get all data from device."
+          expectedValues: ["Signal1", "Signal2"]
+        -
+          code: "503"
+          description: "service unavailable"
+          expectedValues: []
